@@ -18,5 +18,7 @@ details{margin-top:1.6em;border:1px solid var(--line);border-radius:10px;padding
 summary{cursor:pointer;font-weight:600;font-size:1.1rem}
 ul.list{list-style:none;padding:0}ul.list li{padding:12px 0;border-bottom:1px solid var(--line);font-size:1.15rem}
 ul.list a{text-decoration:none}
+.search{width:100%;font:inherit;padding:10px 14px;margin:8px 0 4px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--fg)}
+.search:focus{outline:2px solid var(--accent);outline-offset:1px}
 @media (max-width:480px){.grid{grid-template-columns:repeat(2,1fr)}}
 @media print{header.site,details summary{display:none}details{border:0}details>*{display:block}}
