@@ -9,23 +9,27 @@
 <link rel="icon" href="icon.png">
 <link rel="stylesheet" href="../style.css">
 <style>
-.datebar{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:8px 0 4px}
-.datebar button{font:inherit;font-size:1.4rem;width:48px;height:48px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--fg);cursor:pointer}
+main{padding-bottom:16px}main h1{font-size:1.6rem;margin:.3em 0 .1em}
+.datebar{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:4px 0}
+.datebar button{font:inherit;font-size:1.4rem;width:44px;height:44px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--fg);cursor:pointer}
 .datebar button:disabled{opacity:.35}
 .datebar .d{text-align:center}.datebar .d b{display:block;font-size:1.25rem}.datebar .d small{color:var(--muted)}
-.habits{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:16px 0}
-.habit{font:inherit;font-size:1.15rem;font-weight:600;min-height:72px;border-radius:12px;border:2px solid var(--line);background:var(--card);color:var(--fg);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;-webkit-tap-highlight-color:transparent}
-.habit .tick{width:26px;height:26px;border-radius:50%;border:2px solid var(--muted);display:inline-flex;align-items:center;justify-content:center;font-size:.95rem}
+.phase{margin:8px 0 0}.phase .row{display:flex;justify-content:space-between;align-items:baseline;font-size:.95rem}.phase .row b{font-size:1.05rem}.phase .row span{color:var(--muted)}
+.bar{height:8px;border-radius:4px;background:var(--card);border:1px solid var(--line);overflow:hidden;margin-top:4px}.bar>i{display:block;height:100%;background:var(--accent);border-radius:4px;transition:width .3s}
+.habits{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:12px 0}
+.habit{font:inherit;font-size:1.05rem;font-weight:600;min-height:54px;border-radius:12px;border:2px solid var(--line);background:var(--card);color:var(--fg);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;-webkit-tap-highlight-color:transparent}
+.habit .tick{width:22px;height:22px;border-radius:50%;border:2px solid var(--muted);display:inline-flex;align-items:center;justify-content:center;font-size:.95rem}
 .habit[aria-pressed="true"]{border-color:var(--accent);background:var(--accent);color:#fff}
 .habit[aria-pressed="true"] .tick{border-color:#fff;background:#fff;color:var(--accent)}
 .habit[aria-pressed="true"] .tick::after{content:"✓"}
 label.field{display:block;margin:12px 0 4px;font-weight:600}
-input.box{width:100%;font:inherit;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--fg)}
-.save{width:100%;font:inherit;font-size:1.2rem;font-weight:700;padding:16px;margin-top:20px;border:0;border-radius:12px;background:var(--accent);color:#fff;cursor:pointer}
+.entries{display:grid;grid-template-columns:1fr 2fr;gap:10px}.entries label.field{margin-top:0}#numbers{display:contents}
+input.box{width:100%;font:inherit;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--fg)}
+.save{width:100%;font:inherit;font-size:1.15rem;font-weight:700;padding:13px;margin-top:14px;border:0;border-radius:12px;background:var(--accent);color:#fff;cursor:pointer}
 .save:disabled{opacity:.5}
-#status{min-height:1.6em;margin-top:12px;text-align:center;color:var(--muted)}
+#status{min-height:1.6em;margin-top:8px;text-align:center;color:var(--muted)}
 #status.ok{color:#2e8b57}#status.err{color:#c0392b}
-.small{font-size:.85rem;color:var(--muted);text-align:center;margin-top:24px}
+.small{font-size:.85rem;color:var(--muted);text-align:center;margin:4px 0 0}
 </style></head>
 <body><header class="site"><a href="../index.html">Home</a><a href="../recipes/index.html">Recipes</a><a href="index.html">Habits</a></header>
 <main>
@@ -40,9 +44,10 @@ input.box{width:100%;font:inherit;padding:12px 14px;border:1px solid var(--line)
 </div>
 <div id="app" hidden>
   <div class="datebar"><button id="prev" aria-label="Previous day">‹</button><div class="d"><b id="dlabel"></b><small id="dsub"></small></div><button id="next" aria-label="Next day">›</button></div>
+  <div class="phase" id="phase" hidden><div class="row"><b id="phaseday"></b><span id="phasepct"></span></div><div class="bar" role="progressbar" aria-label="Phase progress"><i id="phasebar"></i></div></div>
   <div class="habits" id="habits"></div>
-  <div id="numbers"></div>
-  <div id="notewrap" hidden><label class="field" for="note">Note</label><input class="box" id="note" type="text" placeholder="Optional"></div>
+  <div class="entries"><div id="numbers"></div>
+  <div id="notewrap" hidden><label class="field" for="note">Note</label><input class="box" id="note" type="text" placeholder="Optional"></div></div>
   <button class="save" id="save" disabled>Save</button>
   <div id="status" role="status"></div>
   <p class="small"><span id="tab"></span></p>
@@ -111,7 +116,7 @@ input.box{width:100%;font:inherit;padding:12px 14px;border:1px solid var(--line)
         var id='n_'+f.name.replace(/\W/g,'');
         var l=document.createElement('label');l.className='field';l.htmlFor=id;l.textContent=f.name;
         var i=document.createElement('input');i.className='box';i.id=id;i.type='text';i.inputMode='decimal';i.dataset.name=f.name;i.value=f.value===''||f.value==null?'':f.value;
-        nw.appendChild(l);nw.appendChild(i);
+        var w=document.createElement('div');w.appendChild(l);w.appendChild(i);nw.appendChild(w);
       }else{
         var b=document.createElement('button');b.type='button';b.className='habit';b.dataset.name=f.name;
         b.setAttribute('aria-pressed',f.value?'true':'false');
@@ -120,6 +125,13 @@ input.box{width:100%;font:inherit;padding:12px 14px;border:1px solid var(--line)
         hw.appendChild(b);
       }
     });
+    var ph=data.phase;
+    if(ph&&ph.total){
+      var pct=Math.max(0,Math.min(100,Math.round(ph.day/ph.total*100)));
+      $('phaseday').textContent='Day '+ph.day+' / '+ph.total;
+      $('phasepct').textContent=pct+'% · '+Math.max(0,ph.total-ph.day)+' days left';
+      $('phasebar').style.width=pct+'%';$('phase').hidden=false;
+    }else{$('phase').hidden=true}
     $('notewrap').hidden=data.note===null;
     $('note').value=data.note||'';
     $('tab').textContent='Logging to tab: '+data.tab;
@@ -127,7 +139,7 @@ input.box{width:100%;font:inherit;padding:12px 14px;border:1px solid var(--line)
 
   function fetchDay(){
     state=null;setBusy(true);setStatus('Loading…','');
-    $('habits').innerHTML='';$('numbers').innerHTML='';$('notewrap').hidden=true;$('tab').textContent='';
+    $('habits').innerHTML='';$('numbers').innerHTML='';$('notewrap').hidden=true;$('tab').textContent='';$('phase').hidden=true;
     var u=cfg.api+(cfg.api.indexOf('?')>-1?'&':'?')+'key='+encodeURIComponent(cfg.key)+'&date='+iso(day);
     fetch(u).then(function(r){return r.json()}).then(function(d){
       if(!d.ok)throw new Error(d.error||'Could not load');
