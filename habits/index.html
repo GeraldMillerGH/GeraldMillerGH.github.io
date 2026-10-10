@@ -30,7 +30,13 @@ input.box{width:100%;font:inherit;padding:12px 14px;border:1px solid var(--line)
 <body><header class="site"><a href="../index.html">Home</a><a href="../recipes/index.html">Recipes</a><a href="index.html">Habits</a></header>
 <main>
 <h1>Habits</h1>
-<div id="setup" hidden><p>This device isn't set up yet. Open your personal setup link once on this device and it will remember it.</p></div>
+<div id="setup" hidden>
+  <p>This device isn't set up yet. Paste your personal setup link below, once per device or home-screen icon.</p>
+  <label class="field" for="setuplink">Setup link</label>
+  <input class="box" id="setuplink" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="https://…/habits/#api=…&amp;k=…">
+  <button class="save" id="setupsave" type="button">Set up this device</button>
+  <div id="setupmsg" role="status"></div>
+</div>
 <div id="app" hidden>
   <div class="datebar"><button id="prev" aria-label="Previous day">‹</button><div class="d"><b id="dlabel"></b><small id="dsub"></small></div><button id="next" aria-label="Next day">›</button></div>
   <div class="habits" id="habits"></div>
@@ -55,7 +61,21 @@ input.box{width:100%;font:inherit;padding:12px 14px;border:1px solid var(--line)
     history.replaceState(null,'',location.pathname);
   }
   if(!cfg){try{cfg=JSON.parse(load(LS))}catch(e){cfg=null}}
-  if(!cfg||!cfg.api){document.getElementById('setup').hidden=false;return;}
+  if(!cfg||!cfg.api){
+    document.getElementById('setup').hidden=false;
+    document.getElementById('setupsave').onclick=function(){
+      var v=document.getElementById('setuplink').value.trim(), i=v.indexOf('#');
+      var h=new URLSearchParams(i>-1?v.slice(i+1):v), msg=document.getElementById('setupmsg');
+      var api=h.get('api'), k=h.get('k');
+      if(!api||!k||!/^https:\/\/script\.google\.com\/.+\/exec$/.test(api)){
+        msg.className='err';msg.style.color='#c0392b';msg.textContent="That doesn't look like a complete setup link. It should contain #api=https://script.google.com/…/exec&k=…";return;
+      }
+      store(LS,JSON.stringify({api:api,key:k}));
+      if(!load(LS)){msg.style.color='#c0392b';msg.textContent='This browser blocked saving. Turn off Private Browsing and try again.';return;}
+      location.reload();
+    };
+    return;
+  }
   document.getElementById('app').hidden=false;
 
   var $=function(id){return document.getElementById(id)};
