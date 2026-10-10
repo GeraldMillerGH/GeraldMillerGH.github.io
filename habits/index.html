@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Habits</title>
+<meta name="robots" content="noindex">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Habits">
+<link rel="apple-touch-icon" href="icon.png">
+<link rel="icon" href="icon.png">
+<link rel="stylesheet" href="../style.css">
+<style>
+.datebar{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:8px 0 4px}
+.datebar button{font:inherit;font-size:1.4rem;width:48px;height:48px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--fg);cursor:pointer}
+.datebar button:disabled{opacity:.35}
+.datebar .d{text-align:center}.datebar .d b{display:block;font-size:1.25rem}.datebar .d small{color:var(--muted)}
+.habits{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:16px 0}
+.habit{font:inherit;font-size:1.15rem;font-weight:600;min-height:72px;border-radius:12px;border:2px solid var(--line);background:var(--card);color:var(--fg);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;-webkit-tap-highlight-color:transparent}
+.habit .tick{width:26px;height:26px;border-radius:50%;border:2px solid var(--muted);display:inline-flex;align-items:center;justify-content:center;font-size:.95rem}
+.habit[aria-pressed="true"]{border-color:var(--accent);background:var(--accent);color:#fff}
+.habit[aria-pressed="true"] .tick{border-color:#fff;background:#fff;color:var(--accent)}
+.habit[aria-pressed="true"] .tick::after{content:"✓"}
+label.field{display:block;margin:12px 0 4px;font-weight:600}
+input.box{width:100%;font:inherit;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--fg)}
+.save{width:100%;font:inherit;font-size:1.2rem;font-weight:700;padding:16px;margin-top:20px;border:0;border-radius:12px;background:var(--accent);color:#fff;cursor:pointer}
+.save:disabled{opacity:.5}
+#status{min-height:1.6em;margin-top:12px;text-align:center;color:var(--muted)}
+#status.ok{color:#2e8b57}#status.err{color:#c0392b}
+.small{font-size:.85rem;color:var(--muted);text-align:center;margin-top:24px}
+</style></head>
+<body><header class="site"><a href="../index.html">Home</a><a href="../recipes/index.html">Recipes</a><a href="index.html">Habits</a></header>
+<main>
+<h1>Habits</h1>
+<div id="setup" hidden><p>This device isn't set up yet. Open your personal setup link once on this device and it will remember it.</p></div>
+<div id="app" hidden>
+  <div class="datebar"><button id="prev" aria-label="Previous day">‹</button><div class="d"><b id="dlabel"></b><small id="dsub"></small></div><button id="next" aria-label="Next day">›</button></div>
+  <div class="habits" id="habits"></div>
+  <div id="numbers"></div>
+  <div id="notewrap" hidden><label class="field" for="note">Note</label><input class="box" id="note" type="text" placeholder="Optional"></div>
+  <button class="save" id="save" disabled>Save</button>
+  <div id="status" role="status"></div>
+  <p class="small"><span id="tab"></span></p>
+</div>
+</main>
+<script>
+(function(){
+  var LS='habitsConfig', cfg=null;
+  window.addEventListener('hashchange',function(){location.reload()});
+  function store(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+  function load(k){try{return localStorage.getItem(k)}catch(e){return null}}
+
+  // One-time setup: habits/#api=<script url>&k=<key>
+  if(location.hash.length>1){
+    var h=new URLSearchParams(location.hash.slice(1));
+    if(h.get('api')&&h.get('k')){cfg={api:h.get('api'),key:h.get('k')};store(LS,JSON.stringify(cfg));}
+    history.replaceState(null,'',location.pathname);
+  }
+  if(!cfg){try{cfg=JSON.parse(load(LS))}catch(e){cfg=null}}
+  if(!cfg||!cfg.api){document.getElementById('setup').hidden=false;return;}
+  document.getElementById('app').hidden=false;
+
+  var $=function(id){return document.getElementById(id)};
+  var day=new Date(); day.setHours(12,0,0,0);
+  var state=null, busy=false;
+
+  function iso(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+  function todayNoon(){var t=new Date();t.setHours(12,0,0,0);return t}
+  function label(){
+    var diff=Math.round((todayNoon()-day)/864e5);
+    $('dlabel').textContent=diff===0?'Today':diff===1?'Yesterday':day.toLocaleDateString(undefined,{weekday:'long'});
+    $('dsub').textContent=day.toLocaleDateString(undefined,{weekday:diff<2?'long':undefined,month:'short',day:'numeric'});
+    $('next').disabled=diff<=0;
+  }
+  function setStatus(msg,cls){var s=$('status');s.textContent=msg||'';s.className=cls||''}
+  function setBusy(b){busy=b;$('save').disabled=b||!state;$('prev').disabled=b;if(b)$('next').disabled=true;else label();}
+
+  function render(data){
+    state=data;
+    var hw=$('habits'),nw=$('numbers');hw.innerHTML='';nw.innerHTML='';
+    data.fields.forEach(function(f){
+      if(f.type==='number'){
+        var id='n_'+f.name.replace(/\W/g,'');
+        var l=document.createElement('label');l.className='field';l.htmlFor=id;l.textContent=f.name;
+        var i=document.createElement('input');i.className='box';i.id=id;i.type='text';i.inputMode='decimal';i.dataset.name=f.name;i.value=f.value===''||f.value==null?'':f.value;
+        nw.appendChild(l);nw.appendChild(i);
+      }else{
+        var b=document.createElement('button');b.type='button';b.className='habit';b.dataset.name=f.name;
+        b.setAttribute('aria-pressed',f.value?'true':'false');
+        b.innerHTML='<span class="tick"></span><span></span>';b.lastChild.textContent=f.name;
+        b.onclick=function(){b.setAttribute('aria-pressed',b.getAttribute('aria-pressed')==='true'?'false':'true');setStatus('Not saved yet','')};
+        hw.appendChild(b);
+      }
+    });
+    $('notewrap').hidden=data.note===null;
+    $('note').value=data.note||'';
+    $('tab').textContent='Logging to tab: '+data.tab;
+  }
+
+  function fetchDay(){
+    state=null;setBusy(true);setStatus('Loading…','');
+    $('habits').innerHTML='';$('numbers').innerHTML='';$('notewrap').hidden=true;$('tab').textContent='';
+    var u=cfg.api+(cfg.api.indexOf('?')>-1?'&':'?')+'key='+encodeURIComponent(cfg.key)+'&date='+iso(day);
+    fetch(u).then(function(r){return r.json()}).then(function(d){
+      if(!d.ok)throw new Error(d.error||'Could not load');
+      render(d);setStatus('','');
+    }).catch(function(e){setStatus(e.message||'Could not reach your sheet','err')}).finally(function(){setBusy(false)});
+  }
+
+  function save(){
+    if(!state||busy)return;
+    var values={};
+    document.querySelectorAll('.habit').forEach(function(b){values[b.dataset.name]=b.getAttribute('aria-pressed')==='true'});
+    document.querySelectorAll('#numbers input').forEach(function(i){values[i.dataset.name]=i.value.trim()});
+    var body={key:cfg.key,date:iso(day),values:values};
+    if(state.note!==null)body.note=$('note').value;
+    setBusy(true);setStatus('Saving…','');
+    fetch(cfg.api,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body)})
+      .then(function(r){return r.json()}).then(function(d){
+        if(!d.ok)throw new Error(d.error||'Save failed');
+        render(d);setStatus('Saved ✓','ok');
+      }).catch(function(e){setStatus((e.message||'Save failed')+' — try again','err')}).finally(function(){setBusy(false)});
+  }
+
+  $('prev').onclick=function(){day.setDate(day.getDate()-1);label();fetchDay()};
+  $('next').onclick=function(){day.setDate(day.getDate()+1);label();fetchDay()};
+  $('save').onclick=save;
+  // If the app was in the background for 30+ minutes, jump back to today and refresh
+  var hiddenAt=0;
+  document.addEventListener('visibilitychange',function(){
+    if(document.visibilityState==='hidden'){hiddenAt=Date.now();return}
+    if(hiddenAt&&Date.now()-hiddenAt>30*60e3&&!busy){day=todayNoon();label();fetchDay()}
+  });
+  label();fetchDay();
+})();
+</script>
+</body></html>
