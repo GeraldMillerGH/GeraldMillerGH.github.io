@@ -108,6 +108,15 @@ input.box{width:100%;font:inherit;padding:10px 12px;border:1px solid var(--line)
   function setStatus(msg,cls){var s=$('status');s.textContent=msg||'';s.className=cls||''}
   function setBusy(b){busy=b;$('save').disabled=b||!state;$('prev').disabled=b;if(b)$('next').disabled=true;else label();}
 
+  // Current phase dates (used unless the sheet script supplies the day count). Update when a new phase starts.
+  var PHASE={start:'2026-08-21',end:'2026-11-20'};
+  function noon(isoStr){var p=isoStr.split('-');return new Date(+p[0],p[1]-1,+p[2],12)}
+  function phaseFromDates(){
+    var s=noon(PHASE.start),e=noon(PHASE.end);
+    var total=Math.round((e-s)/864e5)+1, d=Math.round((day-s)/864e5)+1;
+    return d>=1&&d<=total?{day:d,total:total}:null;
+  }
+
   function render(data){
     state=data;
     var hw=$('habits'),nw=$('numbers');hw.innerHTML='';nw.innerHTML='';
@@ -125,7 +134,7 @@ input.box{width:100%;font:inherit;padding:10px 12px;border:1px solid var(--line)
         hw.appendChild(b);
       }
     });
-    var ph=data.phase;
+    var ph=data.phase||phaseFromDates();
     if(ph&&ph.total){
       var pct=Math.max(0,Math.min(100,Math.round(ph.day/ph.total*100)));
       $('phaseday').textContent='Day '+ph.day+' / '+ph.total;
