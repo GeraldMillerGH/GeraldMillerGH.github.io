@@ -34,7 +34,8 @@ input.box{width:100%;font:inherit;padding:12px 14px;border:1px solid var(--line)
   <p>This device isn't set up yet. Paste your personal setup link below, once per device or home-screen icon.</p>
   <label class="field" for="setuplink">Setup link</label>
   <input class="box" id="setuplink" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="https://…/habits/#api=…&amp;k=…">
-  <button class="save" id="setupsave" type="button">Set up this device</button>
+  <button class="save" id="setuppaste" type="button">Paste link &amp; set up</button>
+  <button class="save" id="setupsave" type="button" style="background:var(--card);color:var(--fg);border:1px solid var(--line)">Set up with link in box</button>
   <div id="setupmsg" role="status"></div>
 </div>
 <div id="app" hidden>
@@ -63,16 +64,25 @@ input.box{width:100%;font:inherit;padding:12px 14px;border:1px solid var(--line)
   if(!cfg){try{cfg=JSON.parse(load(LS))}catch(e){cfg=null}}
   if(!cfg||!cfg.api){
     document.getElementById('setup').hidden=false;
-    document.getElementById('setupsave').onclick=function(){
-      var v=document.getElementById('setuplink').value.trim(), i=v.indexOf('#');
+    function trySetup(v){
+      v=(v||'').trim().replace(/^[<"'\s]+|[>"'\s]+$/g,'');
+      var i=v.indexOf('#');
       var h=new URLSearchParams(i>-1?v.slice(i+1):v), msg=document.getElementById('setupmsg');
       var api=h.get('api'), k=h.get('k');
-      if(!api||!k||!/^https:\/\/script\.google\.com\/.+\/exec$/.test(api)){
-        msg.className='err';msg.style.color='#c0392b';msg.textContent="That doesn't look like a complete setup link. It should contain #api=https://script.google.com/…/exec&k=…";return;
+      if(!v){msg.style.color='#c0392b';msg.textContent='Nothing was pasted. Copy your setup link first, then tap "Paste link & set up".';return;}
+      if(!api||!k||!/^https:\/\/script\.google\.com\/\S+\/exec/.test(api)){
+        msg.style.color='#c0392b';msg.textContent="That doesn't look like a complete setup link. It should contain #api=https://script.google.com/…/exec&k=…";return;
       }
       store(LS,JSON.stringify({api:api,key:k}));
       if(!load(LS)){msg.style.color='#c0392b';msg.textContent='This browser blocked saving. Turn off Private Browsing and try again.';return;}
       location.reload();
+    }
+    document.getElementById('setupsave').onclick=function(){trySetup(document.getElementById('setuplink').value)};
+    document.getElementById('setuppaste').onclick=function(){
+      var msg=document.getElementById('setupmsg');
+      if(!navigator.clipboard||!navigator.clipboard.readText){msg.style.color='#c0392b';msg.textContent='Press and hold in the box, choose Paste, then tap the second button.';return;}
+      navigator.clipboard.readText().then(function(t){document.getElementById('setuplink').value=t;trySetup(t)})
+        .catch(function(){msg.style.color='#c0392b';msg.textContent='Could not read the clipboard. Press and hold in the box, choose Paste, then tap the second button.'});
     };
     return;
   }
