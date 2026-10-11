@@ -29,6 +29,7 @@ input.box{width:100%;font:inherit;padding:10px 12px;border:1px solid var(--line)
 .save:disabled{opacity:.5}
 #status{min-height:1.6em;margin-top:8px;text-align:center;color:var(--muted)}
 #status.ok{color:#2e8b57}#status.err{color:#c0392b}
+.since{margin:10px 0 0;padding:8px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card);display:flex;justify-content:space-between;align-items:baseline;font-size:.95rem}.since b{font-size:1.05rem}.since span{color:var(--muted)}
 .small{font-size:.85rem;color:var(--muted);text-align:center;margin:4px 0 0}
 </style></head>
 <body><header class="site"><a href="../index.html">Home</a><a href="../recipes/index.html">Recipes</a><a href="index.html">Habits</a></header>
@@ -45,6 +46,7 @@ input.box{width:100%;font:inherit;padding:10px 12px;border:1px solid var(--line)
 <div id="app" hidden>
   <div class="datebar"><button id="prev" aria-label="Previous day">‹</button><div class="d"><b id="dlabel"></b><small id="dsub"></small></div><button id="next" aria-label="Next day">›</button></div>
   <div class="phase" id="phase" hidden><div class="row"><b id="phaseday"></b><span id="phasepct"></span></div><div class="bar" role="progressbar" aria-label="Phase progress"><i id="phasebar"></i></div></div>
+  <div class="since" id="since" hidden><span>June’s last poop</span><b id="sincetxt">…</b></div>
   <div class="habits" id="habits"></div>
   <div class="entries"><div id="numbers"></div>
   <div id="notewrap" hidden><label class="field" for="note">Note</label><input class="box" id="note" type="text" placeholder="Optional"></div></div>
@@ -95,7 +97,7 @@ input.box{width:100%;font:inherit;padding:10px 12px;border:1px solid var(--line)
 
   var $=function(id){return document.getElementById(id)};
   var day=new Date(); day.setHours(12,0,0,0);
-  var state=null, busy=false;
+  var state=null, busy=false, sinceStarted=false;
 
   function iso(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
   function todayNoon(){var t=new Date();t.setHours(12,0,0,0);return t}
@@ -115,6 +117,50 @@ input.box{width:100%;font:inherit;padding:10px 12px;border:1px solid var(--line)
     var s=noon(PHASE.start),e=noon(PHASE.end);
     var total=Math.round((e-s)/864e5)+1, d=Math.round((day-s)/864e5)+1;
     return d>=1&&d<=total?{day:d,total:total}:null;
+  }
+
+  // "Days since" counter for one habit: finds the most recent day (up to today) it was checked.
+  var SINCE={field:'June Poop',maxDays:60}, SK='sinceLast', sinceRun=0;
+  function fieldVal(d,name){var f=(d.fields||[]).filter(function(x){return x.name===name})[0];return f?f:null}
+  function showSince(lastIso){
+    var t=todayNoon();
+    if(!lastIso){$('sincetxt').textContent='Over '+SINCE.maxDays+' days';$('since').hidden=false;return}
+    var n=Math.round((t-noon(lastIso))/864e5);
+    $('sincetxt').textContent=n===0?'Today':n===1?'1 day ago':n+' days ago';
+    $('since').hidden=false;
+  }
+  function getDay(isoStr){
+    var u=cfg.api+(cfg.api.indexOf('?')>-1?'&':'?')+'key='+encodeURIComponent(cfg.key)+'&date='+isoStr;
+    return fetch(u).then(function(r){return r.json()}).then(function(d){return d.ok?d:null}).catch(function(){return null});
+  }
+  function updateSince(){
+    var run=++sinceRun, cached=load(SK), t=todayNoon(), back=0;
+    if(cached)showSince(cached);
+    function batch(){
+      if(run!==sinceRun)return;
+      var dates=[];
+      for(var i=0;i<7&&back<=SINCE.maxDays;i++,back++){var d=new Date(t);d.setDate(d.getDate()-back);dates.push(iso(d))}
+      if(!dates.length){store(SK,'');showSince(null);return}
+      Promise.all(dates.map(getDay)).then(function(res){
+        if(run!==sinceRun)return;
+        for(var i=0;i<res.length;i++){
+          var f=res[i]&&fieldVal(res[i],SINCE.field);
+          if(f&&f.value){store(SK,dates[i]);showSince(dates[i]);return}
+          // Nothing newer than the cached day: trust the cache
+          if(cached&&dates[i]===cached){showSince(cached);return}
+        }
+        batch();
+      });
+    }
+    batch();
+  }
+  // Quick update from the day being viewed, without re-scanning
+  function sinceFromState(d){
+    if(!fieldVal(d,SINCE.field)){return false}
+    var cur=iso(day), cached=load(SK), f=fieldVal(d,SINCE.field);
+    if(f.value&&(!cached||cur>cached)){store(SK,cur);showSince(cur);return true}
+    if(!f.value&&cached===cur){store(SK,'');updateSince();return true}
+    return true;
   }
 
   function render(data){
@@ -153,6 +199,7 @@ input.box{width:100%;font:inherit;padding:10px 12px;border:1px solid var(--line)
     fetch(u).then(function(r){return r.json()}).then(function(d){
       if(!d.ok)throw new Error(d.error||'Could not load');
       render(d);setStatus('','');
+      if(!sinceStarted&&fieldVal(d,SINCE.field)){sinceStarted=true;updateSince()}
     }).catch(function(e){setStatus(e.message||'Could not reach your sheet','err')}).finally(function(){setBusy(false)});
   }
 
@@ -167,7 +214,7 @@ input.box{width:100%;font:inherit;padding:10px 12px;border:1px solid var(--line)
     fetch(cfg.api,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body)})
       .then(function(r){return r.json()}).then(function(d){
         if(!d.ok)throw new Error(d.error||'Save failed');
-        render(d);setStatus('Saved ✓','ok');
+        render(d);setStatus('Saved ✓','ok');sinceFromState(d);
       }).catch(function(e){setStatus((e.message||'Save failed')+' — try again','err')}).finally(function(){setBusy(false)});
   }
 
@@ -178,7 +225,7 @@ input.box{width:100%;font:inherit;padding:10px 12px;border:1px solid var(--line)
   var hiddenAt=0;
   document.addEventListener('visibilitychange',function(){
     if(document.visibilityState==='hidden'){hiddenAt=Date.now();return}
-    if(hiddenAt&&Date.now()-hiddenAt>30*60e3&&!busy){day=todayNoon();label();fetchDay()}
+    if(hiddenAt&&Date.now()-hiddenAt>30*60e3&&!busy){day=todayNoon();label();fetchDay();if(sinceStarted)updateSince()}
   });
   label();fetchDay();
 })();
