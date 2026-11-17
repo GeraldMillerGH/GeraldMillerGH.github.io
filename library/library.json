@@ -3,6 +3,7 @@
   "items": [
     {
       "title": "Battleship",
+      "who": "Alice",
       "kind": "Game",
       "due": "2026-09-05",
       "status": "Unconfirmed",

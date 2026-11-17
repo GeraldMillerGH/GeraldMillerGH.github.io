@@ -9,12 +9,14 @@ ul.books .due{color:var(--muted);font-size:.95rem;margin:.15em 0 0}
 ul.books .note{color:var(--muted);font-size:.85rem;margin:.15em 0 0}
 .tag.late{background:#c0392b;color:#fff}
 .empty{color:var(--muted)}
+.summary{font-size:1.1rem;font-weight:600;margin:.8em 0 0}
+h2 .count{color:var(--muted);font-weight:400;font-size:1rem}
 </style></head>
 <body><header class="site"><a href="../index.html">Home</a><a href="../recipes/index.html">Recipes</a><a href="../habits/index.html">Habits</a><a href="../projects/index.html">Projects</a></header>
 <main><h1>Library</h1><p class="sub">What we have out from Sierra Madre Public Library.</p><p class="meta" id="updated"></p>
+<p class="summary" id="summary"></p>
 
-<h2>Checked out</h2>
-<ul class="books" id="out"><li class="empty">Loading…</li></ul>
+<div id="people"><p class="empty">Loading…</p></div>
 
 <details id="past-wrap" hidden><summary>Recently returned</summary><ul class="books" id="past"></ul></details>
 
@@ -22,19 +24,20 @@ ul.books .note{color:var(--muted);font-size:.85rem;margin:.15em 0 0}
 </main>
 <script>
 (function(){
-  var DAY=864e5;
+  var DAY=864e5, PEOPLE=['Gerald','Alice','June'];
   function today(){var d=new Date();return new Date(d.getFullYear(),d.getMonth(),d.getDate());}
   function parse(s){var p=s.split('-');return new Date(+p[0],p[1]-1,+p[2]);}
   function fmt(s){return parse(s).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});}
   function esc(s){var d=document.createElement('div');d.textContent=s||'';return d.innerHTML;}
+  function late(it){return it.status==='Overdue'||(it.status==='Out'&&it.due&&parse(it.due)<today());}
   function row(it,past){
     var tag='',due='';
-    if(past){due=it.returned?'Returned '+fmt(it.returned):'Returned';}
+    if(past){due=(it.who?esc(it.who)+' · ':'')+(it.returned?'Returned '+fmt(it.returned):'Returned');}
     else if(it.due){
       var days=Math.round((parse(it.due)-today())/DAY);
       due='Due '+fmt(it.due);
       if(it.status==='Unconfirmed')tag='<span class="tag">Not sure it’s still out</span>';
-      else if(days<0)tag='<span class="tag late">Overdue</span>';
+      else if(late(it))tag='<span class="tag late">Overdue</span>';
       else if(days<=3)tag='<span class="tag on">Due '+(days===0?'today':days===1?'tomorrow':'in '+days+' days')+'</span>';
     }
     var kind=it.kind&&it.kind!=='Book'?' <span class="tag">'+esc(it.kind)+'</span>':'';
@@ -43,11 +46,19 @@ ul.books .note{color:var(--muted);font-size:.85rem;margin:.15em 0 0}
   fetch('library.json',{cache:'no-store'}).then(function(r){return r.json();}).then(function(d){
     document.getElementById('updated').textContent=d.updated?'Updated '+fmt(d.updated):'';
     var items=d.items||[];
-    var out=items.filter(function(i){return i.status!=='Returned';}).sort(function(a,b){return (a.due||'9').localeCompare(b.due||'9');});
-    var past=items.filter(function(i){return i.status==='Returned';}).sort(function(a,b){return (b.returned||'').localeCompare(a.returned||'');}).slice(0,10);
-    document.getElementById('out').innerHTML=out.length?out.map(function(i){return row(i,false);}).join(''):'<li class="empty">Nothing checked out.</li>';
+    var open=items.filter(function(i){return i.status!=='Returned';});
+    var nLate=open.filter(late).length;
+    document.getElementById('summary').textContent=open.length?open.length+' out'+(nLate?' · '+nLate+' overdue':''):'Nothing checked out.';
+    var who=PEOPLE.slice();
+    open.forEach(function(i){if(i.who&&who.indexOf(i.who)<0)who.push(i.who);});
+    document.getElementById('people').innerHTML=who.map(function(p){
+      var mine=open.filter(function(i){return (i.who||'')===p;}).sort(function(a,b){return (a.due||'9').localeCompare(b.due||'9');});
+      return '<h2>'+esc(p)+' <span class="count">'+(mine.length?mine.length+' out':'')+'</span></h2><ul class="books">'+
+        (mine.length?mine.map(function(i){return row(i,false);}).join(''):'<li class="empty">Nothing out.</li>')+'</ul>';
+    }).join('');
+    var past=items.filter(function(i){return i.status==='Returned';}).sort(function(a,b){return (b.returned||'').localeCompare(a.returned||'');}).slice(0,15);
     if(past.length){document.getElementById('past').innerHTML=past.map(function(i){return row(i,true);}).join('');document.getElementById('past-wrap').hidden=false;}
-  }).catch(function(){document.getElementById('out').innerHTML='<li class="empty">Couldn’t load the list.</li>';});
+  }).catch(function(){document.getElementById('people').innerHTML='<p class="empty">Couldn’t load the list.</p>';});
 })();
 </script>
 </body></html>
