@@ -18,6 +18,7 @@ table.books{width:100%;border-collapse:collapse;font-size:1rem}
 table.books th{text-align:left;font-size:.8rem;font-weight:600;color:var(--muted);padding:6px;border-bottom:2px solid var(--line)}
 table.books td{padding:8px 6px;border-bottom:1px solid var(--line);vertical-align:top}
 table.books th:first-child{padding-left:10px}
+table.books tr.p td.chk+td{padding-left:4px}
 table.books th:last-child,table.books td:last-child{padding-right:8px}
 table.books td.due,table.books td.kind,table.books td.who{white-space:nowrap;width:1%}
 table.books td.due,table.books td.kind{color:var(--muted)}
@@ -35,6 +36,13 @@ table.books tr.pic img{max-width:100%;max-height:260px;border-radius:6px;box-sha
 table.books tr.pic .msg{color:var(--muted);font-size:.85rem;margin:6px 0}
 table.books tr.pic a{font-size:.85rem}
 .hint{color:var(--muted);font-size:.8rem;margin:.2em 0 .4em}
+.tools{display:flex;gap:8px;flex-wrap:wrap;margin:.5em 0 .3em}
+.tools button{font:inherit;font-size:.85rem;font-weight:600;padding:6px 12px;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--fg);cursor:pointer}
+.tools button.primary{background:var(--accent);border-color:var(--accent);color:var(--bg)}
+table.books td.chk{width:1%;padding-right:2px}
+table.books td.chk input{width:20px;height:20px;margin:1px 0 0;accent-color:var(--pc);cursor:pointer}
+table.books tr.found td:not(.chk){opacity:.45}
+table.books tr.found td:nth-child(3){text-decoration:line-through}
 .empty{color:var(--muted)}
 details table.books{margin-top:6px}
 </style></head>
@@ -56,7 +64,8 @@ details table.books{margin-top:6px}
   </div>
 </div>
 <p class="summary" id="summary"></p>
-<p class="hint">Tap a row to see the cover.</p>
+<div class="tools"><button class="primary" id="share">Send list to Notes</button><button id="clear" hidden>Uncheck all</button></div>
+<p class="hint">Tick items off as you find them. Tap a title to see the cover.</p>
 
 <table class="books" id="out"><tr><td class="empty">Loading…</td></tr></table>
 
@@ -70,14 +79,20 @@ details table.books{margin-top:6px}
   function parse(s){var p=s.split('-');return new Date(+p[0],p[1]-1,+p[2]);}
   function fmt(s){var d=parse(s);return (d.getMonth()+1)+'/'+d.getDate();}
   function esc(s){var d=document.createElement('div');d.textContent=s||'';return d.innerHTML;}
-  var ITEMS=[], CACHE={};
+  var ITEMS=[], CACHE={}, OPEN=[];
   var HEAD='<tr><th>Due</th><th>Title</th><th>Type</th><th>Who</th></tr>';
+  var HEAD_OUT='<tr><th></th><th>Due</th><th>Title</th><th>Type</th><th>Who</th></tr>';
+  var FOUND={}; try{FOUND=JSON.parse(localStorage.getItem('libFound')||'{}');}catch(e){}
+  function saveFound(){try{localStorage.setItem('libFound',JSON.stringify(FOUND));}catch(e){}}
+  function idOf(it){return it.barcode||(it.title+'|'+(it.who||''));}
   function row(it,past,brk){
     var date=past?(it.returned?fmt(it.returned):''):(it.due?fmt(it.due):'');
     var late=!past&&it.status==='Overdue';
     var pc='--pc:var(--p-'+(['Gerald','Alice','June'].indexOf(it.who)>=0?it.who.toLowerCase():'other')+')';
     ITEMS.push(it);
-    return '<tr class="p'+(brk?' newdate':'')+'" data-i="'+(ITEMS.length-1)+'" style="'+pc+'"><td class="due'+(late?' late':'')+'">'+date+'</td><td>'+esc(it.title)+'</td><td class="kind">'+esc(it.kind||'Book')+'</td><td class="who"><b>'+esc(it.who||'')+'</b></td></tr>';
+    var found=!past&&FOUND[idOf(it)];
+    var chk=past?'':'<td class="chk"><input type="checkbox" aria-label="Found"'+(found?' checked':'')+'></td>';
+    return '<tr class="p'+(brk?' newdate':'')+(found?' found':'')+'" data-i="'+(ITEMS.length-1)+'" style="'+pc+'">'+chk+'<td class="due'+(late?' late':'')+'">'+date+'</td><td>'+esc(it.title)+'</td><td class="kind">'+esc(it.kind||'Book')+'</td><td class="who"><b>'+esc(it.who||'')+'</b></td></tr>';
   }
   function clean(t){return (t||'').replace(/\s*\(.*?\)\s*/g,' ').trim();}
   function getJSON(u){return fetch(u).then(function(r){if(!r.ok)throw 0;return r.json();});}
@@ -98,7 +113,7 @@ details table.books{margin-top:6px}
     var it=ITEMS[+tr.getAttribute('data-i')]; if(!it)return;
     var pic=document.createElement('tr'); pic.className='pic'; pic.setAttribute('style',tr.getAttribute('style'));
     var gl='https://www.google.com/search?tbm=isch&q='+encodeURIComponent(clean(it.title)+' '+((it.kind||'Book')==='Book'?'book cover':'game'));
-    pic.innerHTML='<td colspan="4"><p class="msg">Looking for a picture…</p></td>';
+    pic.innerHTML='<td colspan="'+tr.children.length+'"><p class="msg">Looking for a picture…</p></td>';
     tr.after(pic);
     var cat=it.link||(it.barcode?'https://sierramadre.biblionix.com/catalog/?search='+encodeURIComponent(it.barcode):'');
     var td=pic.firstChild, more=(cat?'<a href="'+cat+'" target="_blank" rel="noopener">In the library catalog</a> \u00b7 ':'')+'<a href="'+gl+'" target="_blank" rel="noopener">More pictures</a>';
@@ -110,9 +125,33 @@ details table.books{margin-top:6px}
       img.src=u;
     });
   }
+  function updateClear(){document.getElementById('clear').hidden=!Object.keys(FOUND).length;}
+  document.addEventListener('change',function(e){
+    if(!e.target.matches('td.chk input'))return;
+    var tr=e.target.closest('tr'), it=ITEMS[+tr.getAttribute('data-i')]; if(!it)return;
+    if(e.target.checked)FOUND[idOf(it)]=1; else delete FOUND[idOf(it)];
+    tr.classList.toggle('found',e.target.checked); saveFound(); updateClear();
+  });
   document.addEventListener('click',function(e){
-    if(e.target.closest('a'))return;
+    if(e.target.closest('a')||e.target.closest('td.chk'))return;
     var tr=e.target.closest('table.books tr.p'); if(tr)toggle(tr);
+  });
+  function listText(){
+    var lines=OPEN.map(function(i){return i.title+' — '+(i.who||'')+(i.kind&&i.kind!=='Book'?' ('+i.kind.toLowerCase()+')':'')+', due '+(i.due?fmt(i.due):'?')+(i.status==='Overdue'?' OVERDUE':'');});
+    return 'Library returns\n'+lines.join('\n');
+  }
+  function flash(b,msg){var t=b.textContent;b.textContent=msg;setTimeout(function(){b.textContent=t;},1800);}
+  function copy(txt){
+    if(navigator.clipboard&&navigator.clipboard.writeText)return navigator.clipboard.writeText(txt);
+    var ta=document.createElement('textarea');ta.value=txt;document.body.appendChild(ta);ta.select();document.execCommand('copy');ta.remove();return Promise.resolve();
+  }
+  document.getElementById('share').addEventListener('click',function(){
+    var b=this, txt=listText();
+    if(navigator.share){navigator.share({text:txt}).catch(function(err){if(err&&err.name!=='AbortError')copy(txt).then(function(){flash(b,'Copied');});});}
+    else copy(txt).then(function(){flash(b,'Copied — paste into Notes');},function(){flash(b,'Couldn’t copy');});
+  });
+  document.getElementById('clear').addEventListener('click',function(){
+    FOUND={};saveFound();document.querySelectorAll('td.chk input').forEach(function(c){c.checked=false;c.closest('tr').classList.remove('found');});updateClear();
   });
   fetch('library.json',{cache:'no-store'}).then(function(r){return r.json();}).then(function(d){
     document.getElementById('updated').textContent=d.updated?'Updated '+parse(d.updated).toLocaleDateString('en-US',{month:'short',day:'numeric'}):'';
@@ -122,7 +161,10 @@ details table.books{margin-top:6px}
     var nLate=open.filter(function(i){return i.status==='Overdue';}).length;
     var per=PEOPLE.map(function(p){var n=open.filter(function(i){return i.who===p;}).length;return n?p+' '+n:'';}).filter(String).join(', ');
     document.getElementById('summary').textContent=open.length?open.length+' out'+(per?' ('+per+')':'')+(nLate?' \u00b7 '+nLate+' overdue':''):'Nothing checked out.';
-    document.getElementById('out').innerHTML=open.length?HEAD+open.map(function(i,k){return row(i,false,k>0&&i.due!==open[k-1].due);}).join(''):'<tr><td class="empty">Nothing checked out.</td></tr>';
+    OPEN=open;
+    var ids={}; open.forEach(function(i){ids[idOf(i)]=1;}); for(var k in FOUND){if(!ids[k])delete FOUND[k];} saveFound();
+    document.getElementById('out').innerHTML=open.length?HEAD_OUT+open.map(function(i,k){return row(i,false,k>0&&i.due!==open[k-1].due);}).join(''):'<tr><td class="empty">Nothing checked out.</td></tr>';
+    updateClear();
     var past=items.filter(function(i){return i.status==='Returned';}).sort(function(a,b){return (b.returned||'').localeCompare(a.returned||'');}).slice(0,15);
     if(past.length){document.getElementById('past').innerHTML=HEAD.replace('Due','Returned')+past.map(function(i){return row(i,true,false);}).join('');document.getElementById('past-wrap').hidden=false;}
   }).catch(function(){document.getElementById('out').innerHTML='<tr><td class="empty">Couldn’t load the list.</td></tr>';});
