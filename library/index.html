@@ -2,59 +2,73 @@
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Library</title><link rel="stylesheet" href="../style.css">
 <style>
-ul.books{list-style:none;padding:0;margin:0}
-ul.books li{padding:12px 0;border-bottom:1px solid var(--line)}
-ul.books b{font-weight:600}
-ul.books .due{color:var(--muted);font-size:.95rem;margin:.15em 0 0}
-ul.books .note{color:var(--muted);font-size:.85rem;margin:.15em 0 0}
-.tag.late{background:#c0392b;color:#fff}
-.empty{color:var(--muted)}
-.summary{font-size:1.1rem;font-weight:600;margin:.8em 0 0}
+.top{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}
+.top h1{margin-top:.4em}
+.side{text-align:right;font-size:.85rem;flex:none}
+.side a{font-weight:600}
+table.hours{border-collapse:collapse;margin:6px 0 0 auto}
+table.hours td{padding:1px 0 1px 10px;text-align:left;color:var(--muted)}
+table.hours td:first-child{padding-left:0}
+table.hours tr.today td{color:var(--fg);font-weight:700}
+table.hours tr.today td:first-child::before{content:"\25B8 ";color:var(--accent)}
+.summary{font-size:1.05rem;font-weight:600;margin:.4em 0 0}
 h2 .count{color:var(--muted);font-weight:400;font-size:1rem}
+table.books{width:100%;border-collapse:collapse;font-size:1rem}
+table.books td{padding:8px 6px;border-bottom:1px solid var(--line);vertical-align:top}
+table.books td.due{white-space:nowrap;color:var(--muted);width:1%;padding-left:0}
+table.books td.flag{width:1%;white-space:nowrap;text-align:right;padding-right:0}
+.tag.late{background:#c0392b;color:#fff;margin:0}
+.empty{color:var(--muted)}
+details table.books{margin-top:6px}
 </style></head>
 <body><header class="site"><a href="../index.html">Home</a><a href="../recipes/index.html">Recipes</a><a href="../habits/index.html">Habits</a><a href="../projects/index.html">Projects</a></header>
-<main><h1>Library</h1><p class="sub">What we have out from Sierra Madre Public Library.</p><p class="meta" id="updated"></p>
+<main>
+<div class="top">
+  <div><h1>Library</h1><p class="meta" id="updated"></p></div>
+  <div class="side">
+    <a href="https://sierramadre.biblionix.com/">Library account</a>
+    <table class="hours" id="hours">
+      <tr data-d="1"><td>Mon</td><td>11–8</td></tr>
+      <tr data-d="2"><td>Tue</td><td>11–8</td></tr>
+      <tr data-d="3"><td>Wed</td><td>11–8</td></tr>
+      <tr data-d="4"><td>Thu</td><td>10–6</td></tr>
+      <tr data-d="5"><td>Fri</td><td>Closed</td></tr>
+      <tr data-d="6"><td>Sat</td><td>10–6</td></tr>
+      <tr data-d="0"><td>Sun</td><td>Closed</td></tr>
+    </table>
+  </div>
+</div>
 <p class="summary" id="summary"></p>
 
 <div id="people"><p class="empty">Loading…</p></div>
 
-<details id="past-wrap" hidden><summary>Recently returned</summary><ul class="books" id="past"></ul></details>
-
-<p class="meta" style="margin-top:2em"><a href="https://sierramadre.biblionix.com/">Library account</a> · Hours: Mon–Wed 11–8, Thu 10–6, Sat 10–6, closed Fri &amp; Sun</p>
+<details id="past-wrap" hidden><summary>Recently returned</summary><table class="books" id="past"></table></details>
 </main>
 <script>
 (function(){
-  var DAY=864e5, PEOPLE=['Gerald','Alice','June'];
-  function today(){var d=new Date();return new Date(d.getFullYear(),d.getMonth(),d.getDate());}
+  var PEOPLE=['Gerald','Alice','June'];
+  var dow=new Date().getDay();
+  var tr=document.querySelector('#hours tr[data-d="'+dow+'"]'); if(tr)tr.className='today';
   function parse(s){var p=s.split('-');return new Date(+p[0],p[1]-1,+p[2]);}
-  function fmt(s){return parse(s).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});}
+  function fmt(s){var d=parse(s);return d.toLocaleDateString('en-US',{weekday:'short'})+' '+(d.getMonth()+1)+'/'+d.getDate();}
   function esc(s){var d=document.createElement('div');d.textContent=s||'';return d.innerHTML;}
-  function late(it){return it.status==='Overdue'||(it.status==='Out'&&it.due&&parse(it.due)<today());}
   function row(it,past){
-    var tag='',due='';
-    if(past){due=(it.who?esc(it.who)+' · ':'')+(it.returned?'Returned '+fmt(it.returned):'Returned');}
-    else if(it.due){
-      var days=Math.round((parse(it.due)-today())/DAY);
-      due='Due '+fmt(it.due);
-      if(it.status==='Unconfirmed')tag='<span class="tag">Not sure it’s still out</span>';
-      else if(late(it))tag='<span class="tag late">Overdue</span>';
-      else if(days<=3)tag='<span class="tag on">Due '+(days===0?'today':days===1?'tomorrow':'in '+days+' days')+'</span>';
-    }
-    var kind=it.kind&&it.kind!=='Book'?' <span class="tag">'+esc(it.kind)+'</span>':'';
-    return '<li><b>'+esc(it.title)+'</b>'+kind+tag+'<p class="due">'+due+'</p>'+(it.note?'<p class="note">'+esc(it.note)+'</p>':'')+'</li>';
+    var left=past?(it.returned?fmt(it.returned):''):(it.due?fmt(it.due):'');
+    var flag=past?esc(it.who||''):(it.status==='Overdue'?'<span class="tag late">Overdue</span>':'');
+    return '<tr><td class="due">'+left+'</td><td>'+esc(it.title)+'</td><td class="flag">'+flag+'</td></tr>';
   }
   fetch('library.json',{cache:'no-store'}).then(function(r){return r.json();}).then(function(d){
-    document.getElementById('updated').textContent=d.updated?'Updated '+fmt(d.updated):'';
+    document.getElementById('updated').textContent=d.updated?'Updated '+parse(d.updated).toLocaleDateString('en-US',{month:'short',day:'numeric'}):'';
     var items=d.items||[];
     var open=items.filter(function(i){return i.status!=='Returned';});
-    var nLate=open.filter(late).length;
+    var nLate=open.filter(function(i){return i.status==='Overdue';}).length;
     document.getElementById('summary').textContent=open.length?open.length+' out'+(nLate?' · '+nLate+' overdue':''):'Nothing checked out.';
     var who=PEOPLE.slice();
     open.forEach(function(i){if(i.who&&who.indexOf(i.who)<0)who.push(i.who);});
     document.getElementById('people').innerHTML=who.map(function(p){
-      var mine=open.filter(function(i){return (i.who||'')===p;}).sort(function(a,b){return (a.due||'9').localeCompare(b.due||'9');});
-      return '<h2>'+esc(p)+' <span class="count">'+(mine.length?mine.length+' out':'')+'</span></h2><ul class="books">'+
-        (mine.length?mine.map(function(i){return row(i,false);}).join(''):'<li class="empty">Nothing out.</li>')+'</ul>';
+      var mine=open.filter(function(i){return (i.who||'')===p;}).sort(function(a,b){return (a.due||'9').localeCompare(b.due||'9')||a.title.localeCompare(b.title);});
+      return '<h2>'+esc(p)+' <span class="count">'+(mine.length?mine.length+' out':'')+'</span></h2>'+
+        (mine.length?'<table class="books">'+mine.map(function(i){return row(i,false);}).join('')+'</table>':'<p class="empty">Nothing out.</p>');
     }).join('');
     var past=items.filter(function(i){return i.status==='Returned';}).sort(function(a,b){return (b.returned||'').localeCompare(a.returned||'');}).slice(0,15);
     if(past.length){document.getElementById('past').innerHTML=past.map(function(i){return row(i,true);}).join('');document.getElementById('past-wrap').hidden=false;}
