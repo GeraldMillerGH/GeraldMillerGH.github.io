@@ -18,6 +18,18 @@
         "Plastic forks",
         "Plastic spoons"
       ]
+    },
+    {
+      "name": "Pantry",
+      "items": [
+        "Cooking spray",
+        "Pasta sauce",
+        "Peanut butter",
+        "Nutella",
+        "Cereal",
+        "Chips",
+        "Protein shakes"
+      ]
     }
   ]
 }
