@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Library</title><link rel="stylesheet" href="../style.css">
+<style>
+ul.books{list-style:none;padding:0;margin:0}
+ul.books li{padding:12px 0;border-bottom:1px solid var(--line)}
+ul.books b{font-weight:600}
+ul.books .due{color:var(--muted);font-size:.95rem;margin:.15em 0 0}
+ul.books .note{color:var(--muted);font-size:.85rem;margin:.15em 0 0}
+.tag.late{background:#c0392b;color:#fff}
+.empty{color:var(--muted)}
+</style></head>
+<body><header class="site"><a href="../index.html">Home</a><a href="../recipes/index.html">Recipes</a><a href="../habits/index.html">Habits</a><a href="../projects/index.html">Projects</a></header>
+<main><h1>Library</h1><p class="sub">What we have out from Sierra Madre Public Library.</p><p class="meta" id="updated"></p>
+
+<h2>Checked out</h2>
+<ul class="books" id="out"><li class="empty">Loading…</li></ul>
+
+<details id="past-wrap" hidden><summary>Recently returned</summary><ul class="books" id="past"></ul></details>
+
+<p class="meta" style="margin-top:2em"><a href="https://sierramadre.biblionix.com/">Library account</a> · Hours: Mon–Wed 11–8, Thu 10–6, Sat 10–6, closed Fri &amp; Sun</p>
+</main>
+<script>
+(function(){
+  var DAY=864e5;
+  function today(){var d=new Date();return new Date(d.getFullYear(),d.getMonth(),d.getDate());}
+  function parse(s){var p=s.split('-');return new Date(+p[0],p[1]-1,+p[2]);}
+  function fmt(s){return parse(s).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});}
+  function esc(s){var d=document.createElement('div');d.textContent=s||'';return d.innerHTML;}
+  function row(it,past){
+    var tag='',due='';
+    if(past){due=it.returned?'Returned '+fmt(it.returned):'Returned';}
+    else if(it.due){
+      var days=Math.round((parse(it.due)-today())/DAY);
+      due='Due '+fmt(it.due);
+      if(it.status==='Unconfirmed')tag='<span class="tag">Not sure it’s still out</span>';
+      else if(days<0)tag='<span class="tag late">Overdue</span>';
+      else if(days<=3)tag='<span class="tag on">Due '+(days===0?'today':days===1?'tomorrow':'in '+days+' days')+'</span>';
+    }
+    var kind=it.kind&&it.kind!=='Book'?' <span class="tag">'+esc(it.kind)+'</span>':'';
+    return '<li><b>'+esc(it.title)+'</b>'+kind+tag+'<p class="due">'+due+'</p>'+(it.note?'<p class="note">'+esc(it.note)+'</p>':'')+'</li>';
+  }
+  fetch('library.json',{cache:'no-store'}).then(function(r){return r.json();}).then(function(d){
+    document.getElementById('updated').textContent=d.updated?'Updated '+fmt(d.updated):'';
+    var items=d.items||[];
+    var out=items.filter(function(i){return i.status!=='Returned';}).sort(function(a,b){return (a.due||'9').localeCompare(b.due||'9');});
+    var past=items.filter(function(i){return i.status==='Returned';}).sort(function(a,b){return (b.returned||'').localeCompare(a.returned||'');}).slice(0,10);
+    document.getElementById('out').innerHTML=out.length?out.map(function(i){return row(i,false);}).join(''):'<li class="empty">Nothing checked out.</li>';
+    if(past.length){document.getElementById('past').innerHTML=past.map(function(i){return row(i,true);}).join('');document.getElementById('past-wrap').hidden=false;}
+  }).catch(function(){document.getElementById('out').innerHTML='<li class="empty">Couldn’t load the list.</li>';});
+})();
+</script>
+</body></html>
