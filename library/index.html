@@ -28,6 +28,13 @@ table.books tr.newdate td{border-top:2px solid var(--line)}
 table.books tr.p td:first-child{box-shadow:inset 4px 0 0 var(--pc);padding-left:10px}
 table.books tr.p td{background:color-mix(in srgb,var(--pc) 7%,transparent)}
 table.books td.who b{color:var(--pc);font-weight:700}
+table.books tr.p{cursor:pointer}
+table.books tr.p:hover td{background:color-mix(in srgb,var(--pc) 14%,transparent)}
+table.books tr.pic td{background:color-mix(in srgb,var(--pc) 7%,transparent);box-shadow:inset 4px 0 0 var(--pc);padding:6px 10px 14px;text-align:center}
+table.books tr.pic img{max-width:100%;max-height:260px;border-radius:6px;box-shadow:0 1px 6px rgba(0,0,0,.25);display:block;margin:4px auto 6px}
+table.books tr.pic .msg{color:var(--muted);font-size:.85rem;margin:6px 0}
+table.books tr.pic a{font-size:.85rem}
+.hint{color:var(--muted);font-size:.8rem;margin:.2em 0 .4em}
 .empty{color:var(--muted)}
 details table.books{margin-top:6px}
 </style></head>
@@ -49,6 +56,7 @@ details table.books{margin-top:6px}
   </div>
 </div>
 <p class="summary" id="summary"></p>
+<p class="hint">Tap a row to see the cover.</p>
 
 <table class="books" id="out"><tr><td class="empty">Loading…</td></tr></table>
 
@@ -62,13 +70,57 @@ details table.books{margin-top:6px}
   function parse(s){var p=s.split('-');return new Date(+p[0],p[1]-1,+p[2]);}
   function fmt(s){var d=parse(s);return (d.getMonth()+1)+'/'+d.getDate();}
   function esc(s){var d=document.createElement('div');d.textContent=s||'';return d.innerHTML;}
+  var ITEMS=[], CACHE={};
   var HEAD='<tr><th>Due</th><th>Title</th><th>Type</th><th>Who</th></tr>';
   function row(it,past,brk){
     var date=past?(it.returned?fmt(it.returned):''):(it.due?fmt(it.due):'');
     var late=!past&&it.status==='Overdue';
     var pc='--pc:var(--p-'+(['Gerald','Alice','June'].indexOf(it.who)>=0?it.who.toLowerCase():'other')+')';
-    return '<tr class="p'+(brk?' newdate':'')+'" style="'+pc+'"><td class="due'+(late?' late':'')+'">'+date+'</td><td>'+esc(it.title)+'</td><td class="kind">'+esc(it.kind||'Book')+'</td><td class="who"><b>'+esc(it.who||'')+'</b></td></tr>';
+    ITEMS.push(it);
+    return '<tr class="p'+(brk?' newdate':'')+'" data-i="'+(ITEMS.length-1)+'" style="'+pc+'"><td class="due'+(late?' late':'')+'">'+date+'</td><td>'+esc(it.title)+'</td><td class="kind">'+esc(it.kind||'Book')+'</td><td class="who"><b>'+esc(it.who||'')+'</b></td></tr>';
   }
+  function clean(t){return (t||'').replace(/\s*\(.*?\)\s*/g,' ').trim();}
+  function getJSON(u){return fetch(u).then(function(r){if(!r.ok)throw 0;return r.json();});}
+  function fromOpenLibrary(t){
+    return getJSON('https://openlibrary.org/search.json?limit=5&fields=cover_i&title='+encodeURIComponent(t)).then(function(j){
+      var d=(j.docs||[]).filter(function(x){return x.cover_i;})[0];
+      return d?'https://covers.openlibrary.org/b/id/'+d.cover_i+'-M.jpg':null;});
+  }
+  function fromWikipedia(t){
+    return getJSON('https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrlimit=1&prop=pageimages&piprop=thumbnail&pithumbsize=400&format=json&origin=*&gsrsearch='+encodeURIComponent(t)).then(function(j){
+      var pg=j.query&&j.query.pages; if(!pg)return null;
+      for(var k in pg){if(pg[k].thumbnail)return pg[k].thumbnail.source;} return null;});
+  }
+  function findImage(it){
+    var t=clean(it.title), key=it.title;
+    if(CACHE[key])return CACHE[key];
+    var p;
+    if(it.img)p=Promise.resolve(it.img);
+    else if((it.kind||'Book')==='Book')p=fromOpenLibrary(t).catch(function(){return null;}).then(function(u){return u||fromWikipedia(t+' book').catch(function(){return null;});});
+    else p=fromWikipedia(t+' game').catch(function(){return null;}).then(function(u){return u||fromWikipedia(t).catch(function(){return null;});});
+    return CACHE[key]=p;
+  }
+  function toggle(tr){
+    var next=tr.nextElementSibling;
+    if(next&&next.classList.contains('pic')){next.remove();return;}
+    var it=ITEMS[+tr.getAttribute('data-i')]; if(!it)return;
+    var pic=document.createElement('tr'); pic.className='pic'; pic.setAttribute('style',tr.getAttribute('style'));
+    var gl='https://www.google.com/search?tbm=isch&q='+encodeURIComponent(clean(it.title)+' '+((it.kind||'Book')==='Book'?'book cover':'game'));
+    pic.innerHTML='<td colspan="4"><p class="msg">Looking for a picture…</p></td>';
+    tr.after(pic);
+    var td=pic.firstChild, more='<a href="'+gl+'" target="_blank" rel="noopener">More pictures</a>';
+    findImage(it).then(function(u){
+      if(!u){td.innerHTML='<p class="msg">No picture found.</p>'+more;return;}
+      var img=new Image(); img.alt=it.title;
+      img.onload=function(){td.innerHTML='';td.appendChild(img);td.insertAdjacentHTML('beforeend',more);};
+      img.onerror=function(){td.innerHTML='<p class="msg">No picture found.</p>'+more;};
+      img.src=u;
+    });
+  }
+  document.addEventListener('click',function(e){
+    if(e.target.closest('a'))return;
+    var tr=e.target.closest('table.books tr.p'); if(tr)toggle(tr);
+  });
   fetch('library.json',{cache:'no-store'}).then(function(r){return r.json();}).then(function(d){
     document.getElementById('updated').textContent=d.updated?'Updated '+parse(d.updated).toLocaleDateString('en-US',{month:'short',day:'numeric'}):'';
     var items=d.items||[];
