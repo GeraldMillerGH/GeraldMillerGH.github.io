@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inventory</title><link rel="stylesheet" href="../style.css">
+<style>
+:root{--s-ok:#2e8b57;--s-low:#c98a00;--s-add:#c0392b}
+@media (prefers-color-scheme:dark){:root{--s-ok:#6fcf97;--s-low:#f2c94c;--s-add:#ff7b6b}}
+.summary{font-size:1.05rem;font-weight:600;margin:.4em 0 0}
+h2 .count{color:var(--muted);font-weight:400;font-size:1rem}
+.hint{color:var(--muted);font-size:.8rem;margin:.2em 0 .4em}
+.tools{display:flex;gap:8px;flex-wrap:wrap;margin:.5em 0 .3em}
+.tools button{font:inherit;font-size:.85rem;font-weight:600;padding:6px 12px;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--fg);cursor:pointer}
+.tools button.primary{background:var(--accent);border-color:var(--accent);color:var(--bg)}
+ul.inv{list-style:none;padding:0;margin:0}
+ul.inv li{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 6px 8px 10px;border-bottom:1px solid var(--line);box-shadow:inset 4px 0 0 var(--sc,transparent)}
+ul.inv li.low{--sc:var(--s-low);background:color-mix(in srgb,var(--s-low) 8%,transparent)}
+ul.inv li.add{--sc:var(--s-add);background:color-mix(in srgb,var(--s-add) 8%,transparent)}
+ul.inv li.add .name{font-weight:700}
+.name{flex:1;min-width:0}
+.seg{display:flex;flex:none;border:1px solid var(--line);border-radius:999px;overflow:hidden;background:var(--card)}
+.seg button{font:inherit;font-size:.78rem;font-weight:600;padding:6px 10px;border:0;background:none;color:var(--muted);cursor:pointer;white-space:nowrap}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button.on[data-s="ok"]{background:var(--s-ok);color:var(--bg)}
+.seg button.on[data-s="low"]{background:var(--s-low);color:#222}
+.seg button.on[data-s="add"]{background:var(--s-add);color:var(--bg)}
+@media (max-width:480px){.seg button{padding:6px 8px;font-size:.74rem}ul.inv li{font-size:.95rem}}
+.empty{color:var(--muted)}
+</style></head>
+<body><header class="site"><a href="../index.html">Home</a><a href="../recipes/index.html">Recipes</a><a href="../habits/index.html">Habits</a><a href="../projects/index.html">Projects</a></header>
+<main>
+<h1>Household Inventory</h1>
+<p class="summary" id="summary"></p>
+<div class="tools"><button class="primary" id="share">Send list to Notes</button><button id="reset" hidden>Mark all in stock</button></div>
+<p class="hint">Walk the house and set each item. “Add to list” items go to the Costco list; “Running low” items are listed separately.</p>
+<div id="out"><p class="empty">Loading…</p></div>
+</main>
+<script>
+(function(){
+  var KEY='invState', ST={}; try{ST=JSON.parse(localStorage.getItem(KEY)||'{}');}catch(e){}
+  function save(){try{localStorage.setItem(KEY,JSON.stringify(ST));}catch(e){}}
+  function esc(s){var d=document.createElement('div');d.textContent=s||'';return d.innerHTML;}
+  var ROOMS=[], LABELS={ok:'In stock',low:'Low',add:'Add'};
+  function id(room,item){return room+'|'+item;}
+  function get(k){return ST[k]||'ok';}
+  function render(){
+    document.getElementById('out').innerHTML=ROOMS.map(function(r){
+      return '<h2>'+esc(r.name)+' <span class="count" data-room="'+esc(r.name)+'"></span></h2><ul class="inv">'+r.items.map(function(it){
+        var k=id(r.name,it), s=get(k);
+        return '<li class="'+s+'" data-k="'+esc(k)+'"><span class="name">'+esc(it)+'</span><span class="seg">'+['ok','low','add'].map(function(x){
+          return '<button data-s="'+x+'"'+(x===s?' class="on"':'')+' aria-pressed="'+(x===s)+'">'+LABELS[x]+'</button>';}).join('')+'</span></li>';
+      }).join('')+'</ul>';
+    }).join('');
+    counts();
+  }
+  function picked(s){var out=[];ROOMS.forEach(function(r){r.items.forEach(function(it){if(get(id(r.name,it))===s)out.push({room:r.name,item:it});});});return out;}
+  function counts(){
+    var a=picked('add').length,l=picked('low').length;
+    document.getElementById('summary').textContent=a||l?(a?a+' to add':'')+(a&&l?' · ':'')+(l?l+' running low':''):'Everything in stock.';
+    document.getElementById('reset').hidden=!(a||l);
+    document.querySelectorAll('.count').forEach(function(c){
+      var r=c.getAttribute('data-room'),n=picked('add').filter(function(x){return x.room===r;}).length;c.textContent=n?'('+n+' to add)':'';});
+  }
+  document.addEventListener('click',function(e){
+    var b=e.target.closest('.seg button'); if(!b)return;
+    var li=b.closest('li'),k=li.getAttribute('data-k'),s=b.getAttribute('data-s');
+    if(s==='ok')delete ST[k]; else ST[k]=s; save();
+    li.className=s; li.querySelectorAll('button').forEach(function(x){var on=x===b;x.classList.toggle('on',on);x.setAttribute('aria-pressed',on);});
+    counts();
+  });
+  function listText(){
+    var a=picked('add'),l=picked('low'),t='Costco list\n';
+    t+=a.length?a.map(function(x){return x.item;}).join('\n'):'(nothing marked to add)';
+    if(l.length)t+='\n\nRunning low\n'+l.map(function(x){return x.item;}).join('\n');
+    return t;
+  }
+  function flash(b,msg){var t=b.textContent;b.textContent=msg;setTimeout(function(){b.textContent=t;},1800);}
+  function copy(txt){
+    if(navigator.clipboard&&navigator.clipboard.writeText)return navigator.clipboard.writeText(txt);
+    var ta=document.createElement('textarea');ta.value=txt;document.body.appendChild(ta);ta.select();document.execCommand('copy');ta.remove();return Promise.resolve();
+  }
+  document.getElementById('share').addEventListener('click',function(){
+    var b=this,txt=listText();
+    if(navigator.share){navigator.share({text:txt}).catch(function(err){if(err&&err.name!=='AbortError')copy(txt).then(function(){flash(b,'Copied');});});}
+    else copy(txt).then(function(){flash(b,'Copied — paste into Notes');},function(){flash(b,'Couldn’t copy');});
+  });
+  document.getElementById('reset').addEventListener('click',function(){
+    if(!confirm('Mark everything back to in stock?'))return;
+    ST={};save();render();
+  });
+  fetch('inventory.json',{cache:'no-store'}).then(function(r){return r.json();}).then(function(d){
+    ROOMS=d.rooms||[];
+    var valid={};ROOMS.forEach(function(r){r.items.forEach(function(it){valid[id(r.name,it)]=1;});});
+    for(var k in ST){if(!valid[k])delete ST[k];} save();
+    render();
+  }).catch(function(){document.getElementById('out').innerHTML='<p class="empty">Couldn’t load the list.</p>';});
+})();
+</script>
+</body></html>

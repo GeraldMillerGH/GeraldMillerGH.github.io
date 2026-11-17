@@ -1,0 +1,23 @@
+{
+  "rooms": [
+    {
+      "name": "Garage",
+      "items": [
+        "Dishwasher packs",
+        "Rinse aid",
+        "Detergent",
+        "Hand soap",
+        "Paper towels",
+        "Toilet paper",
+        "Garbage bags",
+        "Trash compactor bags",
+        "Ziploc freezer bags",
+        "Ziploc sandwich bags",
+        "Paper plates",
+        "Paper bowls",
+        "Plastic forks",
+        "Plastic spoons"
+      ]
+    }
+  ]
+}
