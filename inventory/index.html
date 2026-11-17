@@ -38,10 +38,10 @@ ul.extras button{font:inherit;font-size:1.1rem;line-height:1;padding:2px 10px;bo
 <main>
 <h1>Household Inventory</h1>
 <p class="summary" id="summary"></p>
-<div class="tools"><button class="primary" id="share">Send list to Notes</button><button id="reset" hidden>Mark all in stock</button></div>
+<div class="tools"><button class="primary" id="share">Copy list</button><button id="reset" hidden>Mark all in stock</button></div>
 <form class="extra" id="extraForm" autocomplete="off"><input id="extraIn" placeholder="Add something else to the list…" enterkeyhint="done"><button type="submit">Add</button></form>
 <ul class="extras" id="extras"></ul>
-<p class="hint">Walk the house and set each item. “Add to list” items go to the Costco list; “Running low” items are listed separately.</p>
+<p class="hint">Walk the house and set each item. “Add” and “Low” items are copied as one list, one item per line, ready to paste into Notes.</p>
 <div id="out"><p class="empty">Loading…</p></div>
 </main>
 <script>
@@ -92,10 +92,9 @@ ul.extras button{font:inherit;font-size:1.1rem;line-height:1;padding:2px 10px;bo
     counts();
   });
   function listText(){
-    var a=picked('add').map(function(x){return x.item;}).concat(EX),l=picked('low'),t='Costco list\n';
-    t+=a.length?a.join('\n'):'(nothing marked to add)';
-    if(l.length)t+='\n\nRunning low\n'+l.map(function(x){return x.item;}).join('\n');
-    return t;
+    var seen={},out=[];
+    picked('add').map(function(x){return x.item;}).concat(EX,picked('low').map(function(x){return x.item;})).forEach(function(x){if(!seen[x]){seen[x]=1;out.push(x);}});
+    return out.join('\n');
   }
   function flash(b,msg){var t=b.textContent;b.textContent=msg;setTimeout(function(){b.textContent=t;},1800);}
   function copy(txt){
@@ -104,8 +103,9 @@ ul.extras button{font:inherit;font-size:1.1rem;line-height:1;padding:2px 10px;bo
   }
   document.getElementById('share').addEventListener('click',function(){
     var b=this,txt=listText();
-    if(navigator.share){navigator.share({text:txt}).catch(function(err){if(err&&err.name!=='AbortError')copy(txt).then(function(){flash(b,'Copied');});});}
-    else copy(txt).then(function(){flash(b,'Copied — paste into Notes');},function(){flash(b,'Couldn’t copy');});
+    if(!txt){flash(b,'Nothing to copy');return;}
+    copy(txt).then(function(){flash(b,'Copied \u2014 paste in Notes');},function(){
+      if(navigator.share)navigator.share({text:txt}).catch(function(){});else flash(b,'Couldn\u2019t copy');});
   });
   document.getElementById('reset').addEventListener('click',function(){
     if(!confirm('Mark everything back to in stock and clear extra items?'))return;
