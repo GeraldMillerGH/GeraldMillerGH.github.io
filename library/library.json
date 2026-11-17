@@ -1,12 +1,74 @@
 {
   "updated": "2026-11-16",
   "items": [
-    {"title": "What Should Danny Do?", "who": "Gerald", "kind": "Book", "due": "2026-11-30", "status": "Out"},
-    {"title": "I Am Invited to a Party!", "who": "June", "kind": "Book", "due": "2026-12-07", "status": "Out"},
-    {"title": "I Love My Mommy", "who": "June", "kind": "Book", "due": "2026-12-07", "status": "Out"},
-    {"title": "Qwirkle", "who": "June", "kind": "Game", "due": "2026-12-07", "status": "Out"},
-    {"title": "Snap Circuits Jr.", "who": "June", "kind": "Game", "due": "2026-12-07", "status": "Out"},
-    {"title": "Trivial Pursuit: Family Edition", "who": "June", "kind": "Game", "due": "2026-12-07", "status": "Out"},
-    {"title": "Wooden Mancala", "who": "June", "kind": "Game", "due": "2026-12-07", "status": "Out"}
+    {
+      "title": "What Should Danny Do?",
+      "who": "Gerald",
+      "kind": "Book",
+      "due": "2026-11-30",
+      "status": "Out",
+      "barcode": "34820637580979",
+      "link": "https://sierramadre.biblionix.com/catalog/biblio/551157145",
+      "img": "https://sierramadre-images.biblionix.com/covers/551157145.jpg"
+    },
+    {
+      "title": "I Am Invited to a Party!",
+      "who": "June",
+      "kind": "Book",
+      "due": "2026-12-07",
+      "status": "Out",
+      "barcode": "34820637090219",
+      "link": "https://sierramadre.biblionix.com/catalog/biblio/241049372",
+      "img": "https://sierramadre-images.biblionix.com/covers/241049372.jpg"
+    },
+    {
+      "title": "I Love My Mommy",
+      "who": "June",
+      "kind": "Book",
+      "due": "2026-12-07",
+      "status": "Out",
+      "barcode": "34820636408107",
+      "link": "https://sierramadre.biblionix.com/catalog/biblio/240990888",
+      "img": "https://sierramadre-images.biblionix.com/covers/240990888.jpg"
+    },
+    {
+      "title": "Qwirkle",
+      "who": "June",
+      "kind": "Game",
+      "due": "2026-12-07",
+      "status": "Out",
+      "barcode": "34820637675266",
+      "link": "https://sierramadre.biblionix.com/catalog/biblio/1560112958",
+      "img": "https://sierramadre-images.biblionix.com/covers/1560112958.jpg"
+    },
+    {
+      "title": "Snap Circuits Jr.",
+      "who": "June",
+      "kind": "Game",
+      "due": "2026-12-07",
+      "status": "Out",
+      "barcode": "34820637565293",
+      "link": "https://sierramadre.biblionix.com/catalog/biblio/943223822",
+      "img": "https://sierramadre-images.biblionix.com/covers/943223822.jpg"
+    },
+    {
+      "title": "Trivial Pursuit: Family Edition",
+      "who": "June",
+      "kind": "Game",
+      "due": "2026-12-07",
+      "status": "Out",
+      "barcode": "34820637260192",
+      "link": "https://sierramadre.biblionix.com/catalog/biblio/282414305"
+    },
+    {
+      "title": "Wooden Mancala",
+      "who": "June",
+      "kind": "Game",
+      "due": "2026-12-07",
+      "status": "Out",
+      "barcode": "34820637671992",
+      "link": "https://sierramadre.biblionix.com/catalog/biblio/1702698304",
+      "img": "https://sierramadre-images.biblionix.com/covers/1702698304.jpg"
+    }
   ]
 }

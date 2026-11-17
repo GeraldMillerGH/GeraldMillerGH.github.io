@@ -86,18 +86,10 @@ details table.books{margin-top:6px}
       var d=(j.docs||[]).filter(function(x){return x.cover_i;})[0];
       return d?'https://covers.openlibrary.org/b/id/'+d.cover_i+'-M.jpg':null;});
   }
-  function fromWikipedia(t){
-    return getJSON('https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrlimit=1&prop=pageimages&piprop=thumbnail&pithumbsize=400&format=json&origin=*&gsrsearch='+encodeURIComponent(t)).then(function(j){
-      var pg=j.query&&j.query.pages; if(!pg)return null;
-      for(var k in pg){if(pg[k].thumbnail)return pg[k].thumbnail.source;} return null;});
-  }
   function findImage(it){
-    var t=clean(it.title), key=it.title;
+    var key=it.title+'|'+(it.who||'');
     if(CACHE[key])return CACHE[key];
-    var p;
-    if(it.img)p=Promise.resolve(it.img);
-    else if((it.kind||'Book')==='Book')p=fromOpenLibrary(t).catch(function(){return null;}).then(function(u){return u||fromWikipedia(t+' book').catch(function(){return null;});});
-    else p=fromWikipedia(t+' game').catch(function(){return null;}).then(function(u){return u||fromWikipedia(t).catch(function(){return null;});});
+    var p=it.img?Promise.resolve(it.img):((it.kind||'Book')==='Book'?fromOpenLibrary(clean(it.title)).catch(function(){return null;}):Promise.resolve(null));
     return CACHE[key]=p;
   }
   function toggle(tr){
@@ -108,11 +100,12 @@ details table.books{margin-top:6px}
     var gl='https://www.google.com/search?tbm=isch&q='+encodeURIComponent(clean(it.title)+' '+((it.kind||'Book')==='Book'?'book cover':'game'));
     pic.innerHTML='<td colspan="4"><p class="msg">Looking for a picture…</p></td>';
     tr.after(pic);
-    var td=pic.firstChild, more='<a href="'+gl+'" target="_blank" rel="noopener">More pictures</a>';
+    var cat=it.link||(it.barcode?'https://sierramadre.biblionix.com/catalog/?search='+encodeURIComponent(it.barcode):'');
+    var td=pic.firstChild, more=(cat?'<a href="'+cat+'" target="_blank" rel="noopener">In the library catalog</a> \u00b7 ':'')+'<a href="'+gl+'" target="_blank" rel="noopener">More pictures</a>';
     findImage(it).then(function(u){
       if(!u){td.innerHTML='<p class="msg">No picture found.</p>'+more;return;}
       var img=new Image(); img.alt=it.title;
-      img.onload=function(){td.innerHTML='';td.appendChild(img);td.insertAdjacentHTML('beforeend',more);};
+      img.onload=function(){if(img.naturalWidth<10){img.onerror();return;}td.innerHTML='';td.appendChild(img);td.insertAdjacentHTML('beforeend',more);};
       img.onerror=function(){td.innerHTML='<p class="msg">No picture found.</p>'+more;};
       img.src=u;
     });
