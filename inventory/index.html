@@ -25,6 +25,13 @@ ul.inv li.add .name{font-weight:700}
 @media (max-width:480px){.seg button{padding:5px 8px;font-size:.74rem}ul.inv li{font-size:.9rem}}
 main h2{margin:1.1em 0 .3em}
 .empty{color:var(--muted)}
+form.extra{display:flex;gap:8px;margin:.6em 0 .2em}
+form.extra input{flex:1;min-width:0;font:inherit;font-size:.95rem;padding:7px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--fg)}
+form.extra input:focus{outline:2px solid var(--accent);outline-offset:1px}
+form.extra button{font:inherit;font-size:.85rem;font-weight:600;padding:6px 14px;border-radius:999px;border:1px solid var(--accent);background:var(--accent);color:var(--bg);cursor:pointer}
+ul.extras{list-style:none;padding:0;margin:0 0 .3em}
+ul.extras li{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:4px 6px 4px 10px;line-height:1.25;font-size:.95rem;font-weight:700;border-bottom:1px solid var(--line);box-shadow:inset 4px 0 0 var(--s-add);background:color-mix(in srgb,var(--s-add) 8%,transparent)}
+ul.extras button{font:inherit;font-size:1.1rem;line-height:1;padding:2px 10px;border:0;background:none;color:var(--muted);cursor:pointer}
 .also{display:block;color:var(--muted);font-size:.7rem;font-weight:400;line-height:1.15}
 </style></head>
 <body><header class="site"><a href="../index.html">Home</a><a href="../recipes/index.html">Recipes</a><a href="../habits/index.html">Habits</a><a href="../projects/index.html">Projects</a></header>
@@ -32,6 +39,8 @@ main h2{margin:1.1em 0 .3em}
 <h1>Household Inventory</h1>
 <p class="summary" id="summary"></p>
 <div class="tools"><button class="primary" id="share">Send list to Notes</button><button id="reset" hidden>Mark all in stock</button></div>
+<form class="extra" id="extraForm" autocomplete="off"><input id="extraIn" placeholder="Add something else to the list…" enterkeyhint="done"><button type="submit">Add</button></form>
+<ul class="extras" id="extras"></ul>
 <p class="hint">Walk the house and set each item. “Add to list” items go to the Costco list; “Running low” items are listed separately.</p>
 <div id="out"><p class="empty">Loading…</p></div>
 </main>
@@ -39,6 +48,19 @@ main h2{margin:1.1em 0 .3em}
 (function(){
   var KEY='invState', ST={}; try{ST=JSON.parse(localStorage.getItem(KEY)||'{}');}catch(e){}
   function save(){try{localStorage.setItem(KEY,JSON.stringify(ST));}catch(e){}}
+  var EX=[]; try{EX=JSON.parse(localStorage.getItem('invExtras')||'[]');}catch(e){}
+  function saveEx(){try{localStorage.setItem('invExtras',JSON.stringify(EX));}catch(e){}}
+  function renderEx(){
+    document.getElementById('extras').innerHTML=EX.map(function(x,i){return '<li><span>'+esc(x)+'</span><button data-x="'+i+'" aria-label="Remove">\u00d7</button></li>';}).join('');
+    counts();
+  }
+  document.getElementById('extraForm').addEventListener('submit',function(e){
+    e.preventDefault(); var inp=document.getElementById('extraIn'), v=inp.value.trim();
+    if(v){EX.push(v);saveEx();renderEx();} inp.value='';
+  });
+  document.getElementById('extras').addEventListener('click',function(e){
+    var b=e.target.closest('button[data-x]'); if(!b)return; EX.splice(+b.getAttribute('data-x'),1); saveEx(); renderEx();
+  });
   function esc(s){var d=document.createElement('div');d.textContent=s||'';return d.innerHTML;}
   var ROOMS=[], LABELS={ok:'In stock',low:'Low',add:'Add'};
   function id(room,item){return item;}
@@ -56,7 +78,7 @@ main h2{margin:1.1em 0 .3em}
   }
   function picked(s){var out=[];Object.keys(WHERE).forEach(function(it){if(get(it)===s)out.push({rooms:WHERE[it],item:it});});return out;}
   function counts(){
-    var a=picked('add').length,l=picked('low').length;
+    var a=picked('add').length+EX.length,l=picked('low').length;
     document.getElementById('summary').textContent=a||l?(a?a+' to add':'')+(a&&l?' · ':'')+(l?l+' running low':''):'Everything in stock.';
     document.getElementById('reset').hidden=!(a||l);
     document.querySelectorAll('.count').forEach(function(c){
@@ -70,8 +92,8 @@ main h2{margin:1.1em 0 .3em}
     counts();
   });
   function listText(){
-    var a=picked('add'),l=picked('low'),t='Costco list\n';
-    t+=a.length?a.map(function(x){return x.item;}).join('\n'):'(nothing marked to add)';
+    var a=picked('add').map(function(x){return x.item;}).concat(EX),l=picked('low'),t='Costco list\n';
+    t+=a.length?a.join('\n'):'(nothing marked to add)';
     if(l.length)t+='\n\nRunning low\n'+l.map(function(x){return x.item;}).join('\n');
     return t;
   }
@@ -86,15 +108,15 @@ main h2{margin:1.1em 0 .3em}
     else copy(txt).then(function(){flash(b,'Copied — paste into Notes');},function(){flash(b,'Couldn’t copy');});
   });
   document.getElementById('reset').addEventListener('click',function(){
-    if(!confirm('Mark everything back to in stock?'))return;
-    ST={};save();render();
+    if(!confirm('Mark everything back to in stock and clear extra items?'))return;
+    ST={};save();EX=[];saveEx();render();renderEx();
   });
   fetch('inventory.json',{cache:'no-store'}).then(function(r){return r.json();}).then(function(d){
     ROOMS=d.rooms||[];
     ROOMS.forEach(function(r){r.items.forEach(function(it){(WHERE[it]=WHERE[it]||[]).push(r.name);});});
     for(var k in ST){var n=k.indexOf('|')>=0?k.split('|').pop():k;if(n!==k){if(!ST[n]||ST[k]==='add')ST[n]=ST[k];delete ST[k];}}
     for(var k in ST){if(!WHERE[k])delete ST[k];} save();
-    render();
+    render();renderEx();
   }).catch(function(){document.getElementById('out').innerHTML='<p class="empty">Couldn’t load the list.</p>';});
 })();
 </script>
