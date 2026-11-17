@@ -14,10 +14,15 @@ table.hours tr.today td:first-child::before{content:"\25B8 ";color:var(--accent)
 .summary{font-size:1.05rem;font-weight:600;margin:.4em 0 0}
 h2 .count{color:var(--muted);font-weight:400;font-size:1rem}
 table.books{width:100%;border-collapse:collapse;font-size:1rem}
+@media (max-width:480px){table.books{font-size:.92rem}table.books td{padding:7px 4px}}
+table.books th{text-align:left;font-size:.8rem;font-weight:600;color:var(--muted);padding:6px;border-bottom:2px solid var(--line)}
 table.books td{padding:8px 6px;border-bottom:1px solid var(--line);vertical-align:top}
-table.books td.due{white-space:nowrap;color:var(--muted);width:1%;padding-left:0}
-table.books td.flag{width:1%;white-space:nowrap;text-align:right;padding-right:0}
-.tag.late{background:#c0392b;color:#fff;margin:0}
+table.books th:first-child,table.books td:first-child{padding-left:0}
+table.books th:last-child,table.books td:last-child{padding-right:0}
+table.books td.due,table.books td.kind,table.books td.who{white-space:nowrap;width:1%}
+table.books td.due,table.books td.kind{color:var(--muted)}
+table.books td.due.late{color:#c0392b;font-weight:700}
+table.books tr.newdate td{border-top:2px solid var(--line)}
 .empty{color:var(--muted)}
 details table.books{margin-top:6px}
 </style></head>
@@ -40,7 +45,7 @@ details table.books{margin-top:6px}
 </div>
 <p class="summary" id="summary"></p>
 
-<div id="people"><p class="empty">Loading…</p></div>
+<table class="books" id="out"><tr><td class="empty">Loading…</td></tr></table>
 
 <details id="past-wrap" hidden><summary>Recently returned</summary><table class="books" id="past"></table></details>
 </main>
@@ -52,27 +57,24 @@ details table.books{margin-top:6px}
   function parse(s){var p=s.split('-');return new Date(+p[0],p[1]-1,+p[2]);}
   function fmt(s){var d=parse(s);return d.toLocaleDateString('en-US',{weekday:'short'})+' '+(d.getMonth()+1)+'/'+d.getDate();}
   function esc(s){var d=document.createElement('div');d.textContent=s||'';return d.innerHTML;}
-  function row(it,past){
-    var left=past?(it.returned?fmt(it.returned):''):(it.due?fmt(it.due):'');
-    var flag=past?esc(it.who||''):(it.status==='Overdue'?'<span class="tag late">Overdue</span>':'');
-    return '<tr><td class="due">'+left+'</td><td>'+esc(it.title)+'</td><td class="flag">'+flag+'</td></tr>';
+  var HEAD='<tr><th>Due</th><th>Title</th><th>Type</th><th>Who</th></tr>';
+  function row(it,past,brk){
+    var date=past?(it.returned?fmt(it.returned):''):(it.due?fmt(it.due):'');
+    var late=!past&&it.status==='Overdue';
+    return '<tr'+(brk?' class="newdate"':'')+'><td class="due'+(late?' late':'')+'">'+date+'</td><td>'+esc(it.title)+'</td><td class="kind">'+esc(it.kind||'Book')+'</td><td class="who">'+esc(it.who||'')+'</td></tr>';
   }
   fetch('library.json',{cache:'no-store'}).then(function(r){return r.json();}).then(function(d){
     document.getElementById('updated').textContent=d.updated?'Updated '+parse(d.updated).toLocaleDateString('en-US',{month:'short',day:'numeric'}):'';
     var items=d.items||[];
-    var open=items.filter(function(i){return i.status!=='Returned';});
+    var open=items.filter(function(i){return i.status!=='Returned';}).sort(function(a,b){
+      return (a.due||'9').localeCompare(b.due||'9')||(PEOPLE.indexOf(a.who)-PEOPLE.indexOf(b.who))||(a.kind||'').localeCompare(b.kind||'')||a.title.localeCompare(b.title);});
     var nLate=open.filter(function(i){return i.status==='Overdue';}).length;
-    document.getElementById('summary').textContent=open.length?open.length+' out'+(nLate?' · '+nLate+' overdue':''):'Nothing checked out.';
-    var who=PEOPLE.slice();
-    open.forEach(function(i){if(i.who&&who.indexOf(i.who)<0)who.push(i.who);});
-    document.getElementById('people').innerHTML=who.map(function(p){
-      var mine=open.filter(function(i){return (i.who||'')===p;}).sort(function(a,b){return (a.due||'9').localeCompare(b.due||'9')||a.title.localeCompare(b.title);});
-      return '<h2>'+esc(p)+' <span class="count">'+(mine.length?mine.length+' out':'')+'</span></h2>'+
-        (mine.length?'<table class="books">'+mine.map(function(i){return row(i,false);}).join('')+'</table>':'<p class="empty">Nothing out.</p>');
-    }).join('');
+    var per=PEOPLE.map(function(p){var n=open.filter(function(i){return i.who===p;}).length;return n?p+' '+n:'';}).filter(String).join(', ');
+    document.getElementById('summary').textContent=open.length?open.length+' out'+(per?' ('+per+')':'')+(nLate?' \u00b7 '+nLate+' overdue':''):'Nothing checked out.';
+    document.getElementById('out').innerHTML=open.length?HEAD+open.map(function(i,k){return row(i,false,k>0&&i.due!==open[k-1].due);}).join(''):'<tr><td class="empty">Nothing checked out.</td></tr>';
     var past=items.filter(function(i){return i.status==='Returned';}).sort(function(a,b){return (b.returned||'').localeCompare(a.returned||'');}).slice(0,15);
-    if(past.length){document.getElementById('past').innerHTML=past.map(function(i){return row(i,true);}).join('');document.getElementById('past-wrap').hidden=false;}
-  }).catch(function(){document.getElementById('people').innerHTML='<p class="empty">Couldn’t load the list.</p>';});
+    if(past.length){document.getElementById('past').innerHTML=HEAD.replace('Due','Returned')+past.map(function(i){return row(i,true,false);}).join('');document.getElementById('past-wrap').hidden=false;}
+  }).catch(function(){document.getElementById('out').innerHTML='<tr><td class="empty">Couldn’t load the list.</td></tr>';});
 })();
 </script>
 </body></html>
