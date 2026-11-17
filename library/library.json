@@ -1,13 +1,12 @@
 {
   "updated": "2026-11-16",
   "items": [
-    {
-      "title": "Battleship",
-      "who": "Alice",
-      "kind": "Game",
-      "due": "2026-09-05",
-      "status": "Unconfirmed",
-      "note": "No overdue notice since it came due, so it was probably returned."
-    }
+    {"title": "What Should Danny Do?", "who": "Gerald", "kind": "Book", "due": "2026-11-30", "status": "Out"},
+    {"title": "I Am Invited to a Party!", "who": "June", "kind": "Book", "due": "2026-12-07", "status": "Out"},
+    {"title": "I Love My Mommy", "who": "June", "kind": "Book", "due": "2026-12-07", "status": "Out"},
+    {"title": "Qwirkle", "who": "June", "kind": "Game", "due": "2026-12-07", "status": "Out"},
+    {"title": "Snap Circuits Jr.", "who": "June", "kind": "Game", "due": "2026-12-07", "status": "Out"},
+    {"title": "Trivial Pursuit: Family Edition", "who": "June", "kind": "Game", "due": "2026-12-07", "status": "Out"},
+    {"title": "Wooden Mancala", "who": "June", "kind": "Game", "due": "2026-12-07", "status": "Out"}
   ]
 }
