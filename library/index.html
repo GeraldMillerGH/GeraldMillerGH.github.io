@@ -17,12 +17,17 @@ table.books{width:100%;border-collapse:collapse;font-size:1rem}
 @media (max-width:480px){table.books{font-size:.92rem}table.books td{padding:7px 4px}}
 table.books th{text-align:left;font-size:.8rem;font-weight:600;color:var(--muted);padding:6px;border-bottom:2px solid var(--line)}
 table.books td{padding:8px 6px;border-bottom:1px solid var(--line);vertical-align:top}
-table.books th:first-child,table.books td:first-child{padding-left:0}
-table.books th:last-child,table.books td:last-child{padding-right:0}
+table.books th:first-child{padding-left:10px}
+table.books th:last-child,table.books td:last-child{padding-right:8px}
 table.books td.due,table.books td.kind,table.books td.who{white-space:nowrap;width:1%}
 table.books td.due,table.books td.kind{color:var(--muted)}
 table.books td.due.late{color:#c0392b;font-weight:700}
 table.books tr.newdate td{border-top:2px solid var(--line)}
+:root{--p-gerald:#2f6db5;--p-alice:#8a4fbf;--p-june:#2e8b57;--p-other:#777}
+@media (prefers-color-scheme:dark){:root{--p-gerald:#6fa8ef;--p-alice:#c49cf0;--p-june:#6fcf97}}
+table.books tr.p td:first-child{box-shadow:inset 4px 0 0 var(--pc);padding-left:10px}
+table.books tr.p td{background:color-mix(in srgb,var(--pc) 7%,transparent)}
+table.books td.who b{color:var(--pc);font-weight:700}
 .empty{color:var(--muted)}
 details table.books{margin-top:6px}
 </style></head>
@@ -55,13 +60,14 @@ details table.books{margin-top:6px}
   var dow=new Date().getDay();
   var tr=document.querySelector('#hours tr[data-d="'+dow+'"]'); if(tr)tr.className='today';
   function parse(s){var p=s.split('-');return new Date(+p[0],p[1]-1,+p[2]);}
-  function fmt(s){var d=parse(s);return d.toLocaleDateString('en-US',{weekday:'short'})+' '+(d.getMonth()+1)+'/'+d.getDate();}
+  function fmt(s){var d=parse(s);return (d.getMonth()+1)+'/'+d.getDate();}
   function esc(s){var d=document.createElement('div');d.textContent=s||'';return d.innerHTML;}
   var HEAD='<tr><th>Due</th><th>Title</th><th>Type</th><th>Who</th></tr>';
   function row(it,past,brk){
     var date=past?(it.returned?fmt(it.returned):''):(it.due?fmt(it.due):'');
     var late=!past&&it.status==='Overdue';
-    return '<tr'+(brk?' class="newdate"':'')+'><td class="due'+(late?' late':'')+'">'+date+'</td><td>'+esc(it.title)+'</td><td class="kind">'+esc(it.kind||'Book')+'</td><td class="who">'+esc(it.who||'')+'</td></tr>';
+    var pc='--pc:var(--p-'+(['Gerald','Alice','June'].indexOf(it.who)>=0?it.who.toLowerCase():'other')+')';
+    return '<tr class="p'+(brk?' newdate':'')+'" style="'+pc+'"><td class="due'+(late?' late':'')+'">'+date+'</td><td>'+esc(it.title)+'</td><td class="kind">'+esc(it.kind||'Book')+'</td><td class="who"><b>'+esc(it.who||'')+'</b></td></tr>';
   }
   fetch('library.json',{cache:'no-store'}).then(function(r){return r.json();}).then(function(d){
     document.getElementById('updated').textContent=d.updated?'Updated '+parse(d.updated).toLocaleDateString('en-US',{month:'short',day:'numeric'}):'';
