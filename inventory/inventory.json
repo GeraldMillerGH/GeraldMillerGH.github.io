@@ -42,6 +42,17 @@
         "Hand soap",
         "Kleenex"
       ]
+    },
+    {
+      "name": "Master bathroom",
+      "items": [
+        "Toilet paper",
+        "Toothpaste",
+        "Toothbrushes",
+        "Toothbrush heads",
+        "Floss",
+        "Deodorant"
+      ]
     }
   ]
 }
