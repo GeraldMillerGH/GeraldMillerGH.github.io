@@ -24,6 +24,7 @@ ul.inv li.add .name{font-weight:700}
 .seg button.on[data-s="add"]{background:var(--s-add);color:var(--bg)}
 @media (max-width:480px){.seg button{padding:6px 8px;font-size:.74rem}ul.inv li{font-size:.95rem}}
 .empty{color:var(--muted)}
+.also{display:block;color:var(--muted);font-size:.75rem;font-weight:400;line-height:1.2}
 </style></head>
 <body><header class="site"><a href="../index.html">Home</a><a href="../recipes/index.html">Recipes</a><a href="../habits/index.html">Habits</a><a href="../projects/index.html">Projects</a></header>
 <main>
@@ -39,31 +40,32 @@ ul.inv li.add .name{font-weight:700}
   function save(){try{localStorage.setItem(KEY,JSON.stringify(ST));}catch(e){}}
   function esc(s){var d=document.createElement('div');d.textContent=s||'';return d.innerHTML;}
   var ROOMS=[], LABELS={ok:'In stock',low:'Low',add:'Add'};
-  function id(room,item){return room+'|'+item;}
+  function id(room,item){return item;}
+  var WHERE={};
   function get(k){return ST[k]||'ok';}
   function render(){
     document.getElementById('out').innerHTML=ROOMS.map(function(r){
       return '<h2>'+esc(r.name)+' <span class="count" data-room="'+esc(r.name)+'"></span></h2><ul class="inv">'+r.items.map(function(it){
-        var k=id(r.name,it), s=get(k);
-        return '<li class="'+s+'" data-k="'+esc(k)+'"><span class="name">'+esc(it)+'</span><span class="seg">'+['ok','low','add'].map(function(x){
+        var k=id(r.name,it), s=get(k), also=WHERE[it].filter(function(x){return x!==r.name;});
+        return '<li class="'+s+'" data-k="'+esc(k)+'"><span class="name">'+esc(it)+(also.length?'<small class="also">also in '+esc(also.join(', '))+'</small>':'')+'</span><span class="seg">'+['ok','low','add'].map(function(x){
           return '<button data-s="'+x+'"'+(x===s?' class="on"':'')+' aria-pressed="'+(x===s)+'">'+LABELS[x]+'</button>';}).join('')+'</span></li>';
       }).join('')+'</ul>';
     }).join('');
     counts();
   }
-  function picked(s){var out=[];ROOMS.forEach(function(r){r.items.forEach(function(it){if(get(id(r.name,it))===s)out.push({room:r.name,item:it});});});return out;}
+  function picked(s){var out=[];Object.keys(WHERE).forEach(function(it){if(get(it)===s)out.push({rooms:WHERE[it],item:it});});return out;}
   function counts(){
     var a=picked('add').length,l=picked('low').length;
     document.getElementById('summary').textContent=a||l?(a?a+' to add':'')+(a&&l?' · ':'')+(l?l+' running low':''):'Everything in stock.';
     document.getElementById('reset').hidden=!(a||l);
     document.querySelectorAll('.count').forEach(function(c){
-      var r=c.getAttribute('data-room'),n=picked('add').filter(function(x){return x.room===r;}).length;c.textContent=n?'('+n+' to add)':'';});
+      var r=c.getAttribute('data-room'),n=picked('add').filter(function(x){return x.rooms.indexOf(r)>=0;}).length;c.textContent=n?'('+n+' to add)':'';});
   }
   document.addEventListener('click',function(e){
     var b=e.target.closest('.seg button'); if(!b)return;
     var li=b.closest('li'),k=li.getAttribute('data-k'),s=b.getAttribute('data-s');
     if(s==='ok')delete ST[k]; else ST[k]=s; save();
-    li.className=s; li.querySelectorAll('button').forEach(function(x){var on=x===b;x.classList.toggle('on',on);x.setAttribute('aria-pressed',on);});
+    document.querySelectorAll('ul.inv li').forEach(function(l){if(l.getAttribute('data-k')!==k)return;l.className=s;l.querySelectorAll('button').forEach(function(x){var on=x.getAttribute('data-s')===s;x.classList.toggle('on',on);x.setAttribute('aria-pressed',on);});});
     counts();
   });
   function listText(){
@@ -88,8 +90,9 @@ ul.inv li.add .name{font-weight:700}
   });
   fetch('inventory.json',{cache:'no-store'}).then(function(r){return r.json();}).then(function(d){
     ROOMS=d.rooms||[];
-    var valid={};ROOMS.forEach(function(r){r.items.forEach(function(it){valid[id(r.name,it)]=1;});});
-    for(var k in ST){if(!valid[k])delete ST[k];} save();
+    ROOMS.forEach(function(r){r.items.forEach(function(it){(WHERE[it]=WHERE[it]||[]).push(r.name);});});
+    for(var k in ST){var n=k.indexOf('|')>=0?k.split('|').pop():k;if(n!==k){if(!ST[n]||ST[k]==='add')ST[n]=ST[k];delete ST[k];}}
+    for(var k in ST){if(!WHERE[k])delete ST[k];} save();
     render();
   }).catch(function(){document.getElementById('out').innerHTML='<p class="empty">Couldn’t load the list.</p>';});
 })();

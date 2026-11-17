@@ -23,6 +23,8 @@
       "name": "Pantry",
       "items": [
         "Cooking spray",
+        "Olive oil",
+        "Avocado oil",
         "Aluminum foil",
         "Parchment paper",
         "Pasta sauce",
@@ -31,6 +33,14 @@
         "Cereal",
         "Chips",
         "Protein shakes"
+      ]
+    },
+    {
+      "name": "Laundry room",
+      "items": [
+        "Detergent",
+        "Hand soap",
+        "Kleenex"
       ]
     }
   ]
