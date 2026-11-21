@@ -22,6 +22,10 @@ main{padding-bottom:16px}main h1{font-size:1.6rem;margin:.3em 0 .1em}
 .habit[aria-pressed="true"]{border-color:var(--accent);background:var(--accent);color:#fff}
 .habit[aria-pressed="true"] .tick{border-color:#fff;background:#fff;color:var(--accent)}
 .habit[aria-pressed="true"] .tick::after{content:"✓"}
+.counter{position:relative;display:flex}.counter .habit{flex:1;width:100%}
+.counter .tick{font-weight:700;font-size:.85rem}.counter .tick.n::after{content:none}
+.counter .minus{position:absolute;top:-8px;right:-8px;width:28px;height:28px;border-radius:50%;border:2px solid var(--accent);background:var(--bg,#1b1a18);color:var(--accent);font:inherit;font-size:1.1rem;font-weight:700;line-height:1;cursor:pointer;padding:0}
+.counter .minus[hidden]{display:none}
 label.field{display:block;margin:12px 0 4px;font-weight:600}
 .entries{display:grid;grid-template-columns:1fr 2fr;gap:10px}.entries label.field{margin-top:0}#numbers{display:contents}
 input.box{width:100%;font:inherit;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--fg)}
@@ -111,7 +115,7 @@ input.box{width:100%;font:inherit;padding:10px 12px;border:1px solid var(--line)
   function setBusy(b){busy=b;$('save').disabled=b||!state;$('prev').disabled=b;if(b)$('next').disabled=true;else label();}
 
   // Current phase dates (used unless the sheet script supplies the day count). Update when a new phase starts.
-  var PHASE={start:'2026-08-21',end:'2026-11-20'};
+  var PHASE={start:'2026-11-21',end:'2027-01-03'};
   function noon(isoStr){var p=isoStr.split('-');return new Date(+p[0],p[1]-1,+p[2],12)}
   function phaseFromDates(){
     var s=noon(PHASE.start),e=noon(PHASE.end);
@@ -163,10 +167,24 @@ input.box{width:100%;font:inherit;padding:10px 12px;border:1px solid var(--line)
     return true;
   }
 
+  // Tap-to-count habits: each tap adds one, the small − takes one back.
+  var COUNTERS=['June Poop'];
+  function toCount(v){if(v===true)return 1;var n=Number(v);return v===''||v==null||v===false?0:isNaN(n)?1:Math.max(0,Math.round(n))}
+  function counterTile(f){
+    var w=document.createElement('div');w.className='counter';w.dataset.name=f.name;
+    var b=document.createElement('button');b.type='button';b.className='habit';
+    b.innerHTML='<span class="tick"></span><span></span>';b.lastChild.textContent=f.name;
+    var m=document.createElement('button');m.type='button';m.className='minus';m.textContent='−';m.setAttribute('aria-label','Remove one '+f.name);
+    function set(n){w.dataset.count=n;b.setAttribute('aria-pressed',n>0?'true':'false');b.firstChild.textContent=n>1?n:'';b.firstChild.className=n>1?'tick n':'tick';m.hidden=n<1;b.setAttribute('aria-label',f.name+': '+n)}
+    b.onclick=function(){set(+w.dataset.count+1);setStatus('Not saved yet','')};
+    m.onclick=function(){set(Math.max(0,+w.dataset.count-1));setStatus('Not saved yet','')};
+    set(toCount(f.value));w.appendChild(b);w.appendChild(m);return w;
+  }
   function render(data){
     state=data;
     var hw=$('habits'),nw=$('numbers');hw.innerHTML='';nw.innerHTML='';
     data.fields.forEach(function(f){
+      if(COUNTERS.indexOf(f.name)>-1){hw.appendChild(counterTile(f));return}
       if(f.type==='number'){
         var id='n_'+f.name.replace(/\W/g,'');
         var l=document.createElement('label');l.className='field';l.htmlFor=id;l.textContent=f.name;
@@ -206,7 +224,8 @@ input.box{width:100%;font:inherit;padding:10px 12px;border:1px solid var(--line)
   function save(){
     if(!state||busy)return;
     var values={};
-    document.querySelectorAll('.habit').forEach(function(b){values[b.dataset.name]=b.getAttribute('aria-pressed')==='true'});
+    document.querySelectorAll('.habits > .habit').forEach(function(b){values[b.dataset.name]=b.getAttribute('aria-pressed')==='true'});
+    document.querySelectorAll('.counter').forEach(function(w){var n=+w.dataset.count;values[w.dataset.name]=n>0?n:''});
     document.querySelectorAll('#numbers input').forEach(function(i){values[i.dataset.name]=i.value.trim()});
     var body={key:cfg.key,date:iso(day),values:values};
     if(state.note!==null)body.note=$('note').value;
