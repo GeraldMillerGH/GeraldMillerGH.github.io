@@ -27,13 +27,17 @@ main{padding-bottom:16px}main h1{font-size:1.6rem;margin:.3em 0 .1em}
 .counter .minus{position:absolute;top:-8px;right:-8px;width:28px;height:28px;border-radius:50%;border:2px solid var(--accent);background:var(--bg,#1b1a18);color:var(--accent);font:inherit;font-size:1.1rem;font-weight:700;line-height:1;cursor:pointer;padding:0}
 .counter .minus[hidden]{display:none}
 label.field{display:block;margin:12px 0 4px;font-weight:600}
-.entries{display:grid;grid-template-columns:1fr 2fr;gap:10px}.entries label.field{margin-top:0}#numbers{display:contents}
+.toprow{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:12px 0 0}.toprow:empty{display:none}
+.numtile{cursor:text;flex-direction:column;gap:0;line-height:1.2}.numtile .nval{font-size:.85rem;font-weight:600;opacity:.85}
+.numtile.has{border-color:var(--accent);background:var(--accent);color:#fff}
+.numtile input{width:100%;height:100%;min-height:50px;font:inherit;font-weight:600;text-align:center;border:0;background:transparent;color:inherit;outline:none;border-radius:10px}
+.numtile.editing{border-color:var(--accent);background:var(--card);color:var(--fg)}
 input.box{width:100%;font:inherit;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--fg)}
 .save{width:100%;font:inherit;font-size:1.15rem;font-weight:700;padding:13px;margin-top:14px;border:0;border-radius:12px;background:var(--accent);color:#fff;cursor:pointer}
 .save:disabled{opacity:.5}
 #status{min-height:1.6em;margin-top:8px;text-align:center;color:var(--muted)}
 #status.ok{color:#2e8b57}#status.err{color:#c0392b}
-.since{margin:10px 0 0;padding:8px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card);display:flex;justify-content:space-between;align-items:baseline;font-size:.95rem}.since b{font-size:1.05rem}.since span{color:var(--muted)}
+.since{min-height:54px;padding:6px 10px;border:1px solid var(--line);border-radius:12px;background:var(--card);display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;font-size:.85rem;line-height:1.25}.since[hidden]{display:none}.since b{font-size:1.05rem}.since span{color:var(--muted)}
 .small{font-size:.85rem;color:var(--muted);text-align:center;margin:4px 0 0}
 </style></head>
 <body><header class="site"><a href="../index.html">Home</a><a href="../recipes/index.html">Recipes</a><a href="index.html">Habits</a><a href="../projects/index.html">Projects</a></header>
@@ -50,15 +54,15 @@ input.box{width:100%;font:inherit;padding:10px 12px;border:1px solid var(--line)
 <div id="app" hidden>
   <div class="datebar"><button id="prev" aria-label="Previous day">‹</button><div class="d"><b id="dlabel"></b><small id="dsub"></small></div><button id="next" aria-label="Next day">›</button></div>
   <div class="phase" id="phase" hidden><div class="row"><b id="phaseday"></b><span id="phasepct"></span></div><div class="bar" role="progressbar" aria-label="Phase progress"><i id="phasebar"></i></div></div>
-  <div class="since" id="since" hidden><span>June’s last poop</span><b id="sincetxt">…</b></div>
+  <div class="toprow"><div class="since" id="since" hidden><span>June’s last poop</span><b id="sincetxt">…</b></div><div id="counters" style="display:contents"></div></div>
   <div class="habits" id="habits"></div>
-  <div class="entries"><div id="numbers"></div>
-  <div id="notewrap" hidden><label class="field" for="note">Note</label><input class="box" id="note" type="text" placeholder="Optional"></div></div>
+  <div id="notewrap" hidden><label class="field" for="note">Note</label><input class="box" id="note" type="text" placeholder="Optional"></div>
   <button class="save" id="save" disabled>Save</button>
   <div id="status" role="status"></div>
   <p class="small"><span id="tab"></span></p>
 </div>
 </main>
+<script src="poop.js"></script>
 <script>
 (function(){
   var LS='habitsConfig', cfg=null;
@@ -176,21 +180,28 @@ input.box{width:100%;font:inherit;padding:10px 12px;border:1px solid var(--line)
     b.innerHTML='<span class="tick"></span><span></span>';b.lastChild.textContent=f.name;
     var m=document.createElement('button');m.type='button';m.className='minus';m.textContent='−';m.setAttribute('aria-label','Remove one '+f.name);
     function set(n){w.dataset.count=n;b.setAttribute('aria-pressed',n>0?'true':'false');b.firstChild.textContent=n>1?n:'';b.firstChild.className=n>1?'tick n':'tick';m.hidden=n<1;b.setAttribute('aria-label',f.name+': '+n)}
-    b.onclick=function(){set(+w.dataset.count+1);setStatus('Not saved yet','')};
+    b.onclick=function(){var n=+w.dataset.count+1;set(n);setStatus('Not saved yet','');if(window.poopParty&&f.name==='June Poop')poopParty(w,n)};
     m.onclick=function(){set(Math.max(0,+w.dataset.count-1));setStatus('Not saved yet','')};
     set(toCount(f.value));w.appendChild(b);w.appendChild(m);return w;
   }
+  // Number habit (Weight) as a grid tile: tap it to type, shows the value after.
+  function numberTile(f){
+    var t=document.createElement('div');t.className='habit numtile';t.setAttribute('role','button');t.tabIndex=0;
+    var nm=document.createElement('span'),v=document.createElement('span');nm.textContent=f.name;v.className='nval';
+    var i=document.createElement('input');i.type='text';i.inputMode='decimal';i.dataset.name=f.name;i.placeholder=f.name;i.setAttribute('aria-label',f.name);
+    i.value=f.value===''||f.value==null?'':f.value;i.hidden=true;
+    function show(){var val=i.value.trim();v.textContent=val;v.hidden=!val;t.classList.toggle('has',!!val);t.classList.remove('editing');nm.hidden=false;i.hidden=true}
+    function edit(){if(!i.hidden)return;t.classList.add('editing');nm.hidden=true;v.hidden=true;i.hidden=false;i.focus();i.select()}
+    t.onclick=edit;t.onkeydown=function(e){if(e.target===t&&(e.key==='Enter'||e.key===' ')){e.preventDefault();edit()}};
+    i.onblur=show;i.oninput=function(){setStatus('Not saved yet','')};i.onkeydown=function(e){if(e.key==='Enter')i.blur()};
+    t.appendChild(nm);t.appendChild(v);t.appendChild(i);show();return t;
+  }
   function render(data){
     state=data;
-    var hw=$('habits'),nw=$('numbers');hw.innerHTML='';nw.innerHTML='';
+    var hw=$('habits'),cw=$('counters');hw.innerHTML='';cw.innerHTML='';
     data.fields.forEach(function(f){
-      if(COUNTERS.indexOf(f.name)>-1){hw.appendChild(counterTile(f));return}
-      if(f.type==='number'){
-        var id='n_'+f.name.replace(/\W/g,'');
-        var l=document.createElement('label');l.className='field';l.htmlFor=id;l.textContent=f.name;
-        var i=document.createElement('input');i.className='box';i.id=id;i.type='text';i.inputMode='decimal';i.dataset.name=f.name;i.value=f.value===''||f.value==null?'':f.value;
-        var w=document.createElement('div');w.appendChild(l);w.appendChild(i);nw.appendChild(w);
-      }else{
+      if(COUNTERS.indexOf(f.name)>-1){cw.appendChild(counterTile(f));if(f.name===SINCE.field)$('since').hidden=false;return}
+      if(f.type==='number'){hw.appendChild(numberTile(f))}else{
         var b=document.createElement('button');b.type='button';b.className='habit';b.dataset.name=f.name;
         b.setAttribute('aria-pressed',f.value?'true':'false');
         b.innerHTML='<span class="tick"></span><span></span>';b.lastChild.textContent=f.name;
@@ -212,7 +223,7 @@ input.box{width:100%;font:inherit;padding:10px 12px;border:1px solid var(--line)
 
   function fetchDay(){
     state=null;setBusy(true);setStatus('Loading…','');
-    $('habits').innerHTML='';$('numbers').innerHTML='';$('notewrap').hidden=true;$('tab').textContent='';$('phase').hidden=true;
+    $('habits').innerHTML='';$('counters').innerHTML='';$('notewrap').hidden=true;$('tab').textContent='';$('phase').hidden=true;
     var u=cfg.api+(cfg.api.indexOf('?')>-1?'&':'?')+'key='+encodeURIComponent(cfg.key)+'&date='+iso(day);
     fetch(u).then(function(r){return r.json()}).then(function(d){
       if(!d.ok)throw new Error(d.error||'Could not load');
@@ -224,9 +235,9 @@ input.box{width:100%;font:inherit;padding:10px 12px;border:1px solid var(--line)
   function save(){
     if(!state||busy)return;
     var values={};
-    document.querySelectorAll('.habits > .habit').forEach(function(b){values[b.dataset.name]=b.getAttribute('aria-pressed')==='true'});
+    document.querySelectorAll('.habits > button.habit').forEach(function(b){values[b.dataset.name]=b.getAttribute('aria-pressed')==='true'});
     document.querySelectorAll('.counter').forEach(function(w){var n=+w.dataset.count;values[w.dataset.name]=n>0?n:''});
-    document.querySelectorAll('#numbers input').forEach(function(i){values[i.dataset.name]=i.value.trim()});
+    document.querySelectorAll('.numtile input').forEach(function(i){values[i.dataset.name]=i.value.trim()});
     var body={key:cfg.key,date:iso(day),values:values};
     if(state.note!==null)body.note=$('note').value;
     setBusy(true);setStatus('Saving…','');
